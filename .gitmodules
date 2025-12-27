@@ -1,9 +1,0 @@
-[submodule "apps/DSPySmartContractTutor"]
-	path = apps/DSPySmartContractTutor
-	url = https://github.com/danyel-ii/DSPySmartContractTutor.git
-[submodule "apps/cubeless_"]
-	path = apps/cubeless_
-	url = https://github.com/danyel-ii/cubeless_.git
-[submodule "apps/glassbox-sha256"]
-	path = apps/glassbox-sha256
-	url = https://github.com/danyel-ii/glassbox-sha256.git

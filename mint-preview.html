@@ -67,6 +67,26 @@
         flex-wrap: wrap;
         gap: 10px;
       }
+      .mint-meta {
+        margin-top: 18px;
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mint-meta span {
+        color: var(--ink);
+      }
+      .mint-actions {
+        margin-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .mint-actions button[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
       button,
       a.button {
         display: inline-flex;
@@ -115,11 +135,23 @@
         <button id="copy-state" type="button">Copy packed state</button>
         <a id="download-svg" class="button" href="#">Download SVG</a>
       </div>
+      <div class="mint-meta">
+        <div>Network: <span id="mint-chain">—</span></div>
+        <div>Contract: <span id="mint-address">—</span></div>
+        <div>Mint price: <span id="mint-price">—</span></div>
+      </div>
+      <div class="mint-actions">
+        <button id="connect-wallet" type="button">Connect wallet</button>
+        <button id="mint-now" type="button" disabled>Mint now</button>
+      </div>
       <textarea id="packed-state" readonly></textarea>
       <div id="status" class="status" role="status"></div>
+      <div id="mint-status" class="status" role="status"></div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js" defer></script>
-    <script src="js/mint-preview.js" defer></script>
+    <script src="js/mint-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js"></script>
+    <script type="module" src="js/mint-preview.js"></script>
   </body>
 </html>

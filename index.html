@@ -1035,13 +1035,15 @@
         return { i, i2, t: smooth(t) };
       }
 
-      const PACK_SCALE = 1000;
+      const PACK_SCALE = 10000;
+      const SEED_SCALE = 1000000;
       const PACK_LIMITS = {
         grid: [3, 22],
         squareMix: [0, 1],
         holeProb: [0.05, 0.95],
-        radius: [0.12, 0.45],
+        radius: [0.18, 0.6],
         pan: [-0.12, 0.12],
+        scale: [0.9, 1.1],
       };
 
       const quantizeFloat = (value, min, max) => {
@@ -1050,7 +1052,7 @@
       };
 
       const quantizeGrid = (value) =>
-        Math.round(clamp(value, PACK_LIMITS.grid[0], PACK_LIMITS.grid[1]));
+        quantizeFloat(value, PACK_LIMITS.grid[0], PACK_LIMITS.grid[1]);
 
       const parseHexColor = (value) => {
         if (!value) return 0;
@@ -1059,22 +1061,24 @@
 
       const getSculptureState = () => {
         const { i, t } = getScrollChapter();
-        return {
-          baseSeed: BASE_SEED,
-          sceneIndex: i,
-          scrollPhase: t,
-          layerOrder: [...stackOrder],
-          layerColors: [...layerColors],
-          layers: layers.map((layer) => ({
-            grid: layer.userData.current.grid,
-            squareMix: layer.userData.current.squareMix,
-            holeProb: layer.userData.current.holeProb,
-            radius: layer.userData.current.radius,
-            panX: layer.userData.current.pan[0],
-            panY: layer.userData.current.pan[1],
-          })),
+          return {
+            baseSeed: BASE_SEED,
+            sceneIndex: i,
+            scrollPhase: t,
+            layerOrder: [...stackOrder],
+            layerColors: [...layerColors],
+            layers: layers.map((layer) => ({
+              seed: layer.userData.current.seed,
+              grid: layer.userData.current.grid,
+              squareMix: layer.userData.current.squareMix,
+              holeProb: layer.userData.current.holeProb,
+              radius: layer.userData.current.radius,
+              panX: layer.userData.current.pan[0],
+              panY: layer.userData.current.pan[1],
+              scale: layer.material.uniforms.uScale.value,
+            })),
+          };
         };
-      };
 
       const packSculptureState = (state = getSculptureState()) => {
         const bytes = [];
@@ -1093,6 +1097,9 @@
         push8(state.sceneIndex ?? 0);
         state.layerOrder.forEach((value) => push8(value));
         state.layerColors.forEach((color) => push24(parseHexColor(color)));
+        state.layers.forEach((layer) => {
+          push32(Math.round(layer.seed * SEED_SCALE));
+        });
 
         state.layers.forEach((layer) => {
           push16(quantizeGrid(layer.grid));
@@ -1101,6 +1108,7 @@
           push16(quantizeFloat(layer.radius, ...PACK_LIMITS.radius));
           push16(quantizeFloat(layer.panX, ...PACK_LIMITS.pan));
           push16(quantizeFloat(layer.panY, ...PACK_LIMITS.pan));
+          push16(quantizeFloat(layer.scale ?? 1, ...PACK_LIMITS.scale));
         });
 
         const hex = `0x${bytes.map((b) => b.toString(16).padStart(2, "0")).join("")}`;
@@ -1112,7 +1120,8 @@
             sceneIndex: "uint8",
             layerOrder: "uint8[3]",
             layerColors: "uint24[3]",
-            layerParams: "uint16[3][6] (grid, squareMix, holeProb, radius, panX, panY)",
+            layerSeeds: `uint32[3] (scaled ${SEED_SCALE})`,
+            layerParams: "uint16[3][7] (grid, squareMix, holeProb, radius, panX, panY, scale)",
             scale: PACK_SCALE,
             limits: PACK_LIMITS,
           },

@@ -157,10 +157,9 @@ contract SculptureMint {
     string memory json = string(
       abi.encodePacked(
         "{",
-        "\"name\":\"Paper Sculpture #",
+        "\"name\":\"sculpture",
         toString(tokenId),
         "\",",
-        "\"description\":\"Generative paper stack sculpture captured at mint time.\",",
         "\"image\":\"",
         image,
         "\",",
@@ -256,12 +255,20 @@ contract SculptureMint {
     string memory attrs = string(
       abi.encodePacked(
         "[",
-        trait("Base Seed", toString(state.baseSeed)), ",",
-        trait("Scene Index", toString(state.sceneIndex)), ",",
-        trait("Layer Order", layerOrderString(state.layerOrder)), ",",
-        trait("Layer 1 Color", toHexColor(state.layerColors[0])), ",",
-        trait("Layer 2 Color", toHexColor(state.layerColors[1])), ",",
-        trait("Layer 3 Color", toHexColor(state.layerColors[2]))
+        traitNumber("Base Seed", toString(state.baseSeed)), ",",
+        traitNumber("Scene Index", toString(state.sceneIndex)), ",",
+        traitNumber("Order 1", toString(state.layerOrder[0])), ",",
+        traitNumber("Order 2", toString(state.layerOrder[1])), ",",
+        traitNumber("Order 3", toString(state.layerOrder[2])), ",",
+        traitNumber("Layer 1 Color R", toString(uint256(uint8(state.layerColors[0] >> 16)))), ",",
+        traitNumber("Layer 1 Color G", toString(uint256(uint8(state.layerColors[0] >> 8)))), ",",
+        traitNumber("Layer 1 Color B", toString(uint256(uint8(state.layerColors[0])))), ",",
+        traitNumber("Layer 2 Color R", toString(uint256(uint8(state.layerColors[1] >> 16)))), ",",
+        traitNumber("Layer 2 Color G", toString(uint256(uint8(state.layerColors[1] >> 8)))), ",",
+        traitNumber("Layer 2 Color B", toString(uint256(uint8(state.layerColors[1])))), ",",
+        traitNumber("Layer 3 Color R", toString(uint256(uint8(state.layerColors[2] >> 16)))), ",",
+        traitNumber("Layer 3 Color G", toString(uint256(uint8(state.layerColors[2] >> 8)))), ",",
+        traitNumber("Layer 3 Color B", toString(uint256(uint8(state.layerColors[2]))))
       )
     );
 
@@ -279,21 +286,21 @@ contract SculptureMint {
         abi.encodePacked(
           attrs,
           ",",
-          trait(layerTrait("Seed", i), toFixed(uint256(state.layerSeeds[i]), SEED_SCALE, 3)),
+          traitNumber(layerTrait("Seed", i), toFixed(uint256(state.layerSeeds[i]), SEED_SCALE, 3)),
           ",",
-          trait(layerTrait("Grid", i), toFixed(grid, FP, 3)),
+          traitNumber(layerTrait("Grid", i), toFixed(grid, FP, 3)),
           ",",
-          trait(layerTrait("Square Mix", i), toFixed(squareMix, FP, 3)),
+          traitNumber(layerTrait("Square Mix", i), toFixed(squareMix, FP, 3)),
           ",",
-          trait(layerTrait("Hole Prob", i), toFixed(holeProb, FP, 3)),
+          traitNumber(layerTrait("Hole Prob", i), toFixed(holeProb, FP, 3)),
           ",",
-          trait(layerTrait("Radius", i), toFixed(radius, FP, 3)),
+          traitNumber(layerTrait("Radius", i), toFixed(radius, FP, 3)),
           ",",
-          trait(layerTrait("Pan X", i), toFixedSigned(panX, FP, 3)),
+          traitNumber(layerTrait("Pan X", i), toFixedSigned(panX, FP, 3)),
           ",",
-          trait(layerTrait("Pan Y", i), toFixedSigned(panY, FP, 3)),
+          traitNumber(layerTrait("Pan Y", i), toFixedSigned(panY, FP, 3)),
           ",",
-          trait(layerTrait("Scale", i), toFixed(scale, FP, 3))
+          traitNumber(layerTrait("Scale", i), toFixed(scale, FP, 3))
         )
       );
     }
@@ -339,14 +346,14 @@ contract SculptureMint {
     );
   }
 
-  function trait(string memory name_, string memory value) internal pure returns (string memory) {
+  function traitNumber(string memory name_, string memory value) internal pure returns (string memory) {
     return string(
       abi.encodePacked(
         "{\"trait_type\":\"",
         name_,
-        "\",\"value\":\"",
+        "\",\"value\":",
         value,
-        "\"}"
+        "}"
       )
     );
   }

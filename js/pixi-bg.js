@@ -1,5 +1,6 @@
 (() => {
   const root = document.getElementById("pixi-bg");
+  const fxRoot = document.getElementById("pixi-fx") || root;
   if (!root || !window.PIXI) {
     return;
   }
@@ -23,7 +24,9 @@
   let hoveredCardIndex = -1;
 
   let app;
+  let fxApp;
   let scene;
+  let fxScene;
   let displacementSprite;
   let displacementFilter;
   let vellumLayer;
@@ -41,7 +44,7 @@
   const cardNodes = [];
   const ripples = [];
   const chaserTrail = [];
-  const floatingDiamonds = [];
+  const floatingCubes = [];
 
   const chaser = {
     x: pointer.x,
@@ -55,27 +58,42 @@
 
   async function init() {
     app = new PIXI.Application();
-    await app.init({
-      resizeTo: window,
-      backgroundAlpha: 0,
-      antialias: true,
-      autoDensity: true
-    });
+    fxApp = new PIXI.Application();
+    await Promise.all([
+      app.init({
+        resizeTo: window,
+        backgroundAlpha: 0,
+        antialias: true,
+        autoDensity: true
+      }),
+      fxApp.init({
+        resizeTo: window,
+        backgroundAlpha: 0,
+        antialias: true,
+        autoDensity: true
+      })
+    ]);
 
     root.appendChild(app.canvas);
+    fxRoot.appendChild(fxApp.canvas);
 
     scene = new PIXI.Container();
+    fxScene = new PIXI.Container();
     app.stage.addChild(scene);
+    fxApp.stage.addChild(fxScene);
+    fxApp.ticker.stop();
 
     vellumLayer = new PIXI.Container();
     shardLayer = new PIXI.Container();
     constellationLayer = new PIXI.Container();
+    constellationLayer.alpha = 0.95;
     effectLayer = new PIXI.Container();
     linkLayer = new PIXI.Graphics();
-    linkLayer.alpha = 1;
+    linkLayer.alpha = 0.9;
     linkLayer.blendMode = screenBlendMode;
 
-    scene.addChild(vellumLayer, shardLayer, constellationLayer, linkLayer, effectLayer);
+    scene.addChild(vellumLayer, shardLayer);
+    fxScene.addChild(constellationLayer, linkLayer, effectLayer);
 
     setupDisplacement();
     setupVellum();
@@ -84,7 +102,7 @@
     setupPointerFx();
     setupCardNodes();
     attachListeners();
-    setupFloatingDiamonds();
+    setupFloatingCubes();
     scheduleCardRefresh();
 
     if (prefersReducedMotion) {
@@ -106,6 +124,7 @@
       accent: cssColor(styles.getPropertyValue("--accent") || "#ffb84c"),
       accent2: cssColor(styles.getPropertyValue("--accent-2") || "#2dd4bf"),
       accent3: cssColor(styles.getPropertyValue("--accent-3") || "#8b5cf6"),
+      accent4: cssColor(styles.getPropertyValue("--accent-4") || "#66a670"),
       paper: cssColor(styles.getPropertyValue("--paper") || "#f7f4ee"),
       muted: cssColor(styles.getPropertyValue("--muted") || "#b7b2a6")
     };
@@ -257,21 +276,29 @@
   }
 
   function setupConstellation() {
-    const pointCount = 84;
+    const pointCount = 96;
     const positions = generateConstellationPositions(pointCount, window.innerWidth, window.innerHeight);
+    const paletteColors = [
+      palette.accent.hex,
+      palette.accent2.hex,
+      palette.accent3.hex,
+      palette.accent4.hex
+    ];
     for (let i = 0; i < pointCount; i += 1) {
       const sprite = new PIXI.Sprite(PIXI.Texture.WHITE);
-      sprite.tint = palette.accent2.hex;
-      const twinkle = 0.35 + Math.random() * 0.55;
+      const tint = paletteColors[Math.floor(Math.random() * paletteColors.length)];
+      sprite.tint = tint;
+      const twinkle = 0.55 + Math.random() * 0.45;
       sprite.alpha = twinkle;
       sprite.anchor.set(0.5);
-      sprite.width = 2.2 + Math.random() * 3.4;
+      sprite.width = 2.8 + Math.random() * 3.8;
       sprite.height = sprite.width;
       const position = positions[i];
       sprite.position.set(position.x, position.y);
       constellationLayer.addChild(sprite);
       constellationPoints.push({
         sprite,
+        color: tint,
         velocityX: (Math.random() - 0.5) * 10,
         velocityY: (Math.random() - 0.5) * 10,
         twinkle
@@ -294,7 +321,7 @@
   }
 
   function setupCardNodes() {
-    const cardElements = document.querySelectorAll(".hero-card, .nav-card");
+    const cardElements = document.querySelectorAll(".pane, .brew-chip");
     cardElements.forEach((element, index) => {
       const node = new PIXI.Graphics();
       const halo = new PIXI.Graphics();
@@ -332,18 +359,18 @@
     });
   }
 
-  function setupFloatingDiamonds() {
-    const diamonds = document.querySelectorAll(".daisy-link");
+  function setupFloatingCubes() {
+    const cubes = document.querySelectorAll(".cube-link");
     const width = window.innerWidth;
     const height = window.innerHeight;
-    diamonds.forEach((diamond) => {
-      const size = 48;
+    cubes.forEach((cube) => {
+      const size = 60;
       const startX = Math.random() * (width - size) + size / 2;
       const startY = Math.random() * (height - size) + size / 2;
-      diamond.style.left = `${startX}px`;
-      diamond.style.top = `${startY}px`;
-      floatingDiamonds.push({
-        el: diamond,
+      cube.style.left = `${startX}px`;
+      cube.style.top = `${startY}px`;
+      floatingCubes.push({
+        el: cube,
         x: startX,
         y: startY,
         vx: (Math.random() - 0.5) * 40,
@@ -365,11 +392,11 @@
       pointer.active = false;
     }, { passive: true });
 
-    const diamonds = document.querySelectorAll(".daisy-link");
-    diamonds.forEach((diamond) => {
-      diamond.addEventListener("mouseenter", () => {
-        diamond.classList.add("glitch");
-        window.setTimeout(() => diamond.classList.remove("glitch"), 520);
+    const cubes = document.querySelectorAll(".cube-link");
+    cubes.forEach((cube) => {
+      cube.addEventListener("mouseenter", () => {
+        cube.classList.add("glitch");
+        window.setTimeout(() => cube.classList.remove("glitch"), 520);
       });
     });
 
@@ -439,7 +466,8 @@
     updateShards(deltaSeconds);
     updateConstellation(deltaSeconds);
     updateDisplacement(deltaSeconds);
-    updateFloatingDiamonds(deltaSeconds);
+    updateFloatingCubes(deltaSeconds);
+    fxApp?.render();
   }
 
   function updateChaser(deltaSeconds) {
@@ -559,7 +587,7 @@
       sprite.x += point.velocityX * deltaSeconds;
       sprite.y += point.velocityY * deltaSeconds;
 
-      sprite.alpha = twinkle + Math.sin(performance.now() * 0.002 + sprite.x * 0.01) * 0.12;
+      sprite.alpha = twinkle + Math.sin(performance.now() * 0.002 + sprite.x * 0.01) * 0.16;
 
       if (sprite.x < -20) sprite.x = width + 20;
       if (sprite.x > width + 20) sprite.x = -20;
@@ -569,12 +597,12 @@
 
     linkLayer.clear();
 
-    const points = constellationPoints.map((point) => point.sprite);
     const now = performance.now();
-    for (let i = 0; i < points.length; i += 1) {
-      const sprite = points[i];
-      for (let j = i + 1; j < points.length; j += 1) {
-        const other = points[j];
+    for (let i = 0; i < constellationPoints.length; i += 1) {
+      const pointData = constellationPoints[i];
+      const sprite = pointData.sprite;
+      for (let j = i + 1; j < constellationPoints.length; j += 1) {
+        const other = constellationPoints[j].sprite;
         const dx = sprite.x - other.x;
         const dy = sprite.y - other.y;
         const distance = Math.hypot(dx, dy);
@@ -588,8 +616,8 @@
               other.x,
               other.y,
               1.4,
-              palette.accent2.hex,
-              intensity * pulse * 0.55
+              pointData.color,
+            intensity * pulse * 0.75
             );
           }
         }
@@ -607,8 +635,8 @@
             nodeData.centerX,
             nodeData.centerY,
             1.2,
-            palette.accent2.hex,
-            intensity * (0.5 + hoverBoost + hoverFactor)
+            pointData.color,
+            intensity * (0.65 + hoverBoost + hoverFactor)
           );
         }
       });
@@ -645,22 +673,23 @@
     displacementFilter.scale.y = base + burst;
   }
 
-  function updateFloatingDiamonds(deltaSeconds) {
+  function updateFloatingCubes(deltaSeconds) {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    floatingDiamonds.forEach((diamond) => {
-      diamond.x += diamond.vx * deltaSeconds;
-      diamond.y += diamond.vy * deltaSeconds;
+    floatingCubes.forEach((cube) => {
+      cube.x += cube.vx * deltaSeconds;
+      cube.y += cube.vy * deltaSeconds;
 
-      if (diamond.x < 30 || diamond.x > width - 30) {
-        diamond.vx *= -1;
+      const padding = cube.size * 0.6;
+      if (cube.x < padding || cube.x > width - padding) {
+        cube.vx *= -1;
       }
-      if (diamond.y < 30 || diamond.y > height - 30) {
-        diamond.vy *= -1;
+      if (cube.y < padding || cube.y > height - padding) {
+        cube.vy *= -1;
       }
 
-      diamond.el.style.left = `${diamond.x}px`;
-      diamond.el.style.top = `${diamond.y}px`;
+      cube.el.style.left = `${cube.x}px`;
+      cube.el.style.top = `${cube.y}px`;
     });
   }
 
@@ -726,6 +755,7 @@
     }
     updateConstellation(0);
     app.render();
+    fxApp?.render();
   }
 
   function getDeltaSeconds(ticker) {

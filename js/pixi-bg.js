@@ -86,10 +86,10 @@
     vellumLayer = new PIXI.Container();
     shardLayer = new PIXI.Container();
     constellationLayer = new PIXI.Container();
-    constellationLayer.alpha = 0.95;
+    constellationLayer.alpha = 0.6;
     effectLayer = new PIXI.Container();
     linkLayer = new PIXI.Graphics();
-    linkLayer.alpha = 0.9;
+    linkLayer.alpha = 0;
     linkLayer.blendMode = screenBlendMode;
 
     scene.addChild(vellumLayer, shardLayer);
@@ -100,7 +100,6 @@
     setupShards();
     setupConstellation();
     setupPointerFx();
-    setupCardNodes();
     attachListeners();
     setupFloatingCubes();
     scheduleCardRefresh();
@@ -276,22 +275,17 @@
   }
 
   function setupConstellation() {
-    const pointCount = 96;
+    const pointCount = 72;
     const positions = generateConstellationPositions(pointCount, window.innerWidth, window.innerHeight);
-    const paletteColors = [
-      palette.accent.hex,
-      palette.accent2.hex,
-      palette.accent3.hex,
-      palette.accent4.hex
-    ];
+    const paletteColors = [0xe5e4e2, 0xd8dbe1, 0xcdd2d8];
     for (let i = 0; i < pointCount; i += 1) {
       const sprite = new PIXI.Sprite(PIXI.Texture.WHITE);
       const tint = paletteColors[Math.floor(Math.random() * paletteColors.length)];
       sprite.tint = tint;
-      const twinkle = 0.55 + Math.random() * 0.45;
+      const twinkle = 0.16 + Math.random() * 0.22;
       sprite.alpha = twinkle;
       sprite.anchor.set(0.5);
-      sprite.width = 2.8 + Math.random() * 3.8;
+      sprite.width = 1.4 + Math.random() * 2.2;
       sprite.height = sprite.width;
       const position = positions[i];
       sprite.position.set(position.x, position.y);
@@ -299,8 +293,8 @@
       constellationPoints.push({
         sprite,
         color: tint,
-        velocityX: (Math.random() - 0.5) * 10,
-        velocityY: (Math.random() - 0.5) * 10,
+        velocityX: (Math.random() - 0.5) * 4,
+        velocityY: (Math.random() - 0.5) * 4,
         twinkle
       });
     }
@@ -579,15 +573,13 @@
   function updateConstellation(deltaSeconds) {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const hoverBoost = hoveredCardIndex >= 0 ? 0.6 : 0;
-
     constellationPoints.forEach((point) => {
       const sprite = point.sprite;
       const twinkle = point.twinkle || 0.7;
       sprite.x += point.velocityX * deltaSeconds;
       sprite.y += point.velocityY * deltaSeconds;
 
-      sprite.alpha = twinkle + Math.sin(performance.now() * 0.002 + sprite.x * 0.01) * 0.16;
+      sprite.alpha = twinkle + Math.sin(performance.now() * 0.002 + sprite.x * 0.01) * 0.12;
 
       if (sprite.x < -20) sprite.x = width + 20;
       if (sprite.x > width + 20) sprite.x = -20;
@@ -596,68 +588,6 @@
     });
 
     linkLayer.clear();
-
-    const now = performance.now();
-    for (let i = 0; i < constellationPoints.length; i += 1) {
-      const pointData = constellationPoints[i];
-      const sprite = pointData.sprite;
-      for (let j = i + 1; j < constellationPoints.length; j += 1) {
-        const other = constellationPoints[j].sprite;
-        const dx = sprite.x - other.x;
-        const dy = sprite.y - other.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance < 120) {
-          const intensity = Math.max(0, 1 - distance / 120);
-          const pulse = connectionPulse(i, j, now);
-          if (pulse > 0) {
-            drawLink(
-              sprite.x,
-              sprite.y,
-              other.x,
-              other.y,
-              1.4,
-              pointData.color,
-            intensity * pulse * 0.75
-            );
-          }
-        }
-      }
-      cardNodes.forEach((nodeData, index) => {
-        const dx = sprite.x - nodeData.centerX;
-        const dy = sprite.y - nodeData.centerY;
-        const distance = Math.hypot(dx, dy);
-        if (distance < 200) {
-          const intensity = Math.max(0, 1 - distance / 200);
-          const hoverFactor = hoveredCardIndex === index ? 0.6 : 0;
-          drawLink(
-            sprite.x,
-            sprite.y,
-            nodeData.centerX,
-            nodeData.centerY,
-            1.2,
-            pointData.color,
-            intensity * (0.65 + hoverBoost + hoverFactor)
-          );
-        }
-      });
-    }
-
-    cardNodes.forEach((nodeData, index) => {
-      const node = nodeData.node;
-      const halo = nodeData.halo;
-      const pulse = 1 + Math.sin(performance.now() * 0.002 + index) * 0.1;
-      node.scale.set(pulse);
-      const isHovered = hoveredCardIndex === index;
-      node.alpha = isHovered ? 1 : 0.85;
-      halo.position.set(nodeData.centerX, nodeData.centerY);
-      if (isHovered) {
-        const glowPulse = 1 + Math.sin(performance.now() * 0.004) * 0.2;
-        halo.scale.set(glowPulse);
-        halo.alpha = 0.45;
-      } else {
-        halo.alpha = 0;
-      }
-    });
   }
 
   function updateDisplacement(deltaSeconds) {

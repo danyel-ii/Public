@@ -847,7 +847,7 @@
 
       const planeGeo = new THREE.PlaneGeometry(1, 1, 1, 1);
 
-      const BASE_SEED = 10 + Math.random() * 900;
+      const BASE_SEED = Math.floor(10 + Math.random() * 900);
       const baseLayer = (i) => ({
         grid: 6 + i * 0.8,
         squareMix: 0.45,
@@ -1034,6 +1034,93 @@
         const i2 = clamp(i + 1, 0, maxIdx);
         return { i, i2, t: smooth(t) };
       }
+
+      const PACK_SCALE = 1000;
+      const PACK_LIMITS = {
+        grid: [3, 22],
+        squareMix: [0, 1],
+        holeProb: [0.05, 0.95],
+        radius: [0.12, 0.45],
+        pan: [-0.12, 0.12],
+      };
+
+      const quantizeFloat = (value, min, max) => {
+        const clamped = clamp(value, min, max);
+        return Math.round(((clamped - min) / (max - min)) * PACK_SCALE);
+      };
+
+      const quantizeGrid = (value) =>
+        Math.round(clamp(value, PACK_LIMITS.grid[0], PACK_LIMITS.grid[1]));
+
+      const parseHexColor = (value) => {
+        if (!value) return 0;
+        return parseInt(value.replace("#", ""), 16);
+      };
+
+      const getSculptureState = () => {
+        const { i, t } = getScrollChapter();
+        return {
+          baseSeed: BASE_SEED,
+          sceneIndex: i,
+          scrollPhase: t,
+          layerOrder: [...stackOrder],
+          layerColors: [...layerColors],
+          layers: layers.map((layer) => ({
+            grid: layer.userData.current.grid,
+            squareMix: layer.userData.current.squareMix,
+            holeProb: layer.userData.current.holeProb,
+            radius: layer.userData.current.radius,
+            panX: layer.userData.current.pan[0],
+            panY: layer.userData.current.pan[1],
+          })),
+        };
+      };
+
+      const packSculptureState = (state = getSculptureState()) => {
+        const bytes = [];
+        const push8 = (value) => bytes.push(value & 0xff);
+        const push16 = (value) => {
+          bytes.push((value >> 8) & 0xff, value & 0xff);
+        };
+        const push24 = (value) => {
+          bytes.push((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff);
+        };
+        const push32 = (value) => {
+          bytes.push((value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff);
+        };
+
+        push32(state.baseSeed >>> 0);
+        push8(state.sceneIndex ?? 0);
+        state.layerOrder.forEach((value) => push8(value));
+        state.layerColors.forEach((color) => push24(parseHexColor(color)));
+
+        state.layers.forEach((layer) => {
+          push16(quantizeGrid(layer.grid));
+          push16(quantizeFloat(layer.squareMix, ...PACK_LIMITS.squareMix));
+          push16(quantizeFloat(layer.holeProb, ...PACK_LIMITS.holeProb));
+          push16(quantizeFloat(layer.radius, ...PACK_LIMITS.radius));
+          push16(quantizeFloat(layer.panX, ...PACK_LIMITS.pan));
+          push16(quantizeFloat(layer.panY, ...PACK_LIMITS.pan));
+        });
+
+        const hex = `0x${bytes.map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+        return {
+          bytes: new Uint8Array(bytes),
+          hex,
+          schema: {
+            baseSeed: "uint32",
+            sceneIndex: "uint8",
+            layerOrder: "uint8[3]",
+            layerColors: "uint24[3]",
+            layerParams: "uint16[3][6] (grid, squareMix, holeProb, radius, panX, panY)",
+            scale: PACK_SCALE,
+            limits: PACK_LIMITS,
+          },
+        };
+      };
+
+      window.getSculptureState = getSculptureState;
+      window.packSculptureState = packSculptureState;
 
       // ---------- tap-to-remix variation ----------
       // Offsets blend on top of scroll baseline.
@@ -1248,6 +1335,17 @@
           bumpLayerUp(layerIndex);
         });
       });
+
+      const mintButton = document.querySelector(".mint-cta");
+      if (mintButton) {
+        mintButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          const packed = packSculptureState();
+          localStorage.setItem("sculpturePackedState", packed.hex);
+          const url = `mint-preview.html?state=${encodeURIComponent(packed.hex)}`;
+          window.open(url, "_blank", "noopener");
+        });
+      }
 
       // ---------- render loop / reduced motion ----------
       motionPill.textContent = `motion: ${reduce ? "reduced" : "on"}`;

@@ -1,0 +1,180 @@
+:root[data-theme="poster"] {
+  --bg: #f6e7ce;
+  --bg-2: #e3c190;
+  --ink: #0b0b0b;
+  --muted: rgba(11, 11, 11, 0.6);
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.1);
+  --surface-soft: rgba(255, 255, 255, 0.015);
+  --border: rgba(17, 17, 19, 0.22);
+  --border-strong: rgba(17, 17, 19, 0.36);
+  --shadow: 0 28px 64px rgba(20, 17, 22, 0.2);
+  --accent-1: #d40000;
+  --accent-2: #111111;
+  --accent-3: #ffcc00;
+  --accent-4: #ff6a00;
+  --focus: rgba(212, 0, 0, 0.6);
+  --note-bg: rgba(255, 236, 120, 0.68);
+  --note-bg-2: rgba(255, 200, 54, 0.58);
+  --note-border: rgba(17, 17, 17, 0.55);
+  --note-shadow: 0 22px 30px rgba(0, 0, 0, 0.26);
+  --note-tape: rgba(255, 255, 255, 0.5);
+  --note-fold: rgba(0, 0, 0, 0.16);
+  --font-sans: "Patrick Hand", "Kalam", cursive;
+  --font-display: "Rubik Dirt", "Permanent Marker", cursive;
+  --font-mono: "Patrick Hand", "Kalam", cursive;
+  --page-gradient: radial-gradient(circle at 16% 18%, rgba(212, 0, 0, 0.42), transparent 48%),
+    radial-gradient(circle at 82% 12%, rgba(255, 106, 0, 0.32), transparent 44%),
+    radial-gradient(circle at 68% 82%, rgba(255, 204, 0, 0.36), transparent 52%),
+    linear-gradient(160deg, var(--bg), var(--bg-2));
+  --page-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.12) 0.8px, transparent 1px),
+    radial-gradient(circle at 40% 70%, rgba(212, 0, 0, 0.1) 0.8px, transparent 1.2px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 6px);
+  --page-glow: radial-gradient(circle at 52% 24%, rgba(212, 0, 0, 0.26), transparent 65%);
+  --terminal-outline: 1px solid rgba(212, 0, 0, 0.55);
+  --hero-gradient: linear-gradient(140deg, rgba(225, 6, 0, 0.12), rgba(245, 196, 0, 0.08));
+  --nav-gradient: linear-gradient(140deg, rgba(11, 61, 145, 0.1), rgba(21, 21, 21, 0.06));
+  --wave-bg: rgba(255, 255, 255, 0.06);
+  --wave-border: rgba(212, 0, 0, 0.5);
+  --cta-gradient: linear-gradient(120deg, rgba(225, 6, 0, 0.36), rgba(245, 196, 0, 0.26));
+  --cta-gradient-alt: linear-gradient(120deg, rgba(11, 61, 145, 0.32), rgba(21, 21, 21, 0.2));
+  --chip-gradient-1: linear-gradient(130deg, rgba(225, 6, 0, 0.12), rgba(255, 255, 255, 0.02));
+  --chip-gradient-2: linear-gradient(130deg, rgba(11, 61, 145, 0.12), rgba(255, 255, 255, 0.02));
+  --chip-gradient-3: linear-gradient(130deg, rgba(245, 196, 0, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+:root[data-theme="grid"] {
+  --bg: #f4f1ea;
+  --bg-2: #e2ddd3;
+  --ink: #0b0b0b;
+  --muted: rgba(11, 11, 11, 0.58);
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --surface-soft: rgba(255, 255, 255, 0.012);
+  --border: rgba(27, 27, 27, 0.2);
+  --border-strong: rgba(27, 27, 27, 0.35);
+  --shadow: 0 24px 50px rgba(0, 0, 0, 0.12);
+  --accent-1: #111111;
+  --accent-2: #ffd400;
+  --accent-3: #c2003a;
+  --accent-4: #00b5e2;
+  --focus: rgba(0, 181, 226, 0.6);
+  --note-bg: rgba(180, 220, 255, 0.64);
+  --note-bg-2: rgba(120, 185, 255, 0.54);
+  --note-border: rgba(0, 0, 0, 0.5);
+  --note-shadow: 0 20px 28px rgba(0, 0, 0, 0.24);
+  --note-tape: rgba(255, 255, 255, 0.5);
+  --note-fold: rgba(0, 0, 0, 0.16);
+  --font-sans: "Sedgwick Ave", "Patrick Hand", cursive;
+  --font-display: "Sedgwick Ave Display", "Sedgwick Ave", cursive;
+  --font-mono: "Sedgwick Ave", "Patrick Hand", cursive;
+  --page-gradient: radial-gradient(circle at 18% 20%, rgba(255, 212, 0, 0.34), transparent 48%),
+    radial-gradient(circle at 78% 18%, rgba(0, 181, 226, 0.3), transparent 44%),
+    radial-gradient(circle at 50% 80%, rgba(194, 0, 58, 0.28), transparent 50%),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
+  --page-pattern: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 28px),
+    radial-gradient(circle, rgba(0, 0, 0, 0.08) 0.8px, transparent 1.2px);
+  --page-glow: radial-gradient(circle at 78% 22%, rgba(255, 212, 0, 0.22), transparent 60%);
+  --terminal-outline: 1px solid rgba(0, 0, 0, 0.45);
+  --hero-gradient: linear-gradient(140deg, rgba(225, 59, 42, 0.08), rgba(27, 27, 27, 0.05));
+  --nav-gradient: linear-gradient(140deg, rgba(45, 108, 223, 0.08), rgba(27, 27, 27, 0.04));
+  --wave-bg: rgba(255, 255, 255, 0.04);
+  --wave-border: rgba(0, 0, 0, 0.5);
+  --cta-gradient: linear-gradient(120deg, rgba(225, 59, 42, 0.28), rgba(27, 27, 27, 0.18));
+  --cta-gradient-alt: linear-gradient(120deg, rgba(45, 108, 223, 0.24), rgba(27, 27, 27, 0.14));
+  --chip-gradient-1: linear-gradient(130deg, rgba(225, 59, 42, 0.1), rgba(255, 255, 255, 0.016));
+  --chip-gradient-2: linear-gradient(130deg, rgba(27, 27, 27, 0.08), rgba(255, 255, 255, 0.016));
+  --chip-gradient-3: linear-gradient(130deg, rgba(45, 108, 223, 0.1), rgba(255, 255, 255, 0.016));
+}
+
+:root[data-theme="collage"] {
+  --bg: #f1e1cc;
+  --bg-2: #d9b88f;
+  --ink: #1a130f;
+  --muted: rgba(26, 19, 15, 0.6);
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --surface-soft: rgba(255, 255, 255, 0.015);
+  --border: rgba(36, 34, 31, 0.18);
+  --border-strong: rgba(36, 34, 31, 0.32);
+  --shadow: 0 26px 60px rgba(36, 34, 31, 0.18);
+  --accent-1: #e84a1a;
+  --accent-2: #008a7a;
+  --accent-3: #e3007a;
+  --accent-4: #5a7d2b;
+  --focus: rgba(0, 138, 122, 0.6);
+  --note-bg: rgba(255, 186, 201, 0.66);
+  --note-bg-2: rgba(255, 142, 176, 0.56);
+  --note-border: rgba(26, 19, 15, 0.5);
+  --note-shadow: 0 22px 30px rgba(0, 0, 0, 0.24);
+  --note-tape: rgba(255, 255, 255, 0.5);
+  --note-fold: rgba(0, 0, 0, 0.16);
+  --font-sans: "Kalam", "Patrick Hand", cursive;
+  --font-display: "Rock Salt", "Kalam", cursive;
+  --font-mono: "Kalam", "Patrick Hand", cursive;
+  --page-gradient: radial-gradient(circle at 18% 22%, rgba(232, 74, 26, 0.34), transparent 48%),
+    radial-gradient(circle at 78% 18%, rgba(0, 138, 122, 0.3), transparent 44%),
+    radial-gradient(circle at 66% 82%, rgba(227, 0, 122, 0.32), transparent 50%),
+    linear-gradient(160deg, var(--bg), var(--bg-2));
+  --page-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.1) 0.8px, transparent 1px),
+    radial-gradient(circle at 40% 70%, rgba(227, 0, 122, 0.1) 0.8px, transparent 1.2px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 6px);
+  --page-glow: radial-gradient(circle at 52% 26%, rgba(0, 138, 122, 0.22), transparent 60%);
+  --terminal-outline: 1px solid rgba(0, 138, 122, 0.4);
+  --hero-gradient: linear-gradient(140deg, rgba(196, 81, 54, 0.1), rgba(216, 164, 64, 0.08));
+  --nav-gradient: linear-gradient(140deg, rgba(47, 127, 122, 0.1), rgba(43, 43, 43, 0.08));
+  --wave-bg: rgba(255, 255, 255, 0.05);
+  --wave-border: rgba(0, 138, 122, 0.5);
+  --cta-gradient: linear-gradient(120deg, rgba(196, 81, 54, 0.28), rgba(216, 164, 64, 0.2));
+  --cta-gradient-alt: linear-gradient(120deg, rgba(47, 127, 122, 0.26), rgba(43, 43, 43, 0.16));
+  --chip-gradient-1: linear-gradient(130deg, rgba(196, 81, 54, 0.12), rgba(255, 255, 255, 0.02));
+  --chip-gradient-2: linear-gradient(130deg, rgba(47, 127, 122, 0.12), rgba(255, 255, 255, 0.02));
+  --chip-gradient-3: linear-gradient(130deg, rgba(216, 164, 64, 0.12), rgba(255, 255, 255, 0.02));
+}
+
+:root[data-theme="neon"] {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --bg-2: #151515;
+  --ink: #f7f4f0;
+  --muted: rgba(247, 244, 240, 0.6);
+  --surface: rgba(10, 12, 16, 0.1);
+  --surface-strong: rgba(10, 12, 16, 0.18);
+  --surface-soft: rgba(10, 12, 16, 0.05);
+  --border: rgba(247, 244, 240, 0.14);
+  --border-strong: rgba(247, 244, 240, 0.22);
+  --shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  --accent-1: #ff004d;
+  --accent-2: #00f0ff;
+  --accent-3: #ffe600;
+  --accent-4: #39ff14;
+  --focus: rgba(0, 240, 255, 0.7);
+  --note-bg: rgba(92, 255, 170, 0.42);
+  --note-bg-2: rgba(57, 255, 20, 0.34);
+  --note-border: rgba(0, 240, 255, 0.4);
+  --note-shadow: 0 24px 34px rgba(0, 0, 0, 0.45);
+  --note-tape: rgba(255, 255, 255, 0.35);
+  --note-fold: rgba(0, 0, 0, 0.2);
+  --font-sans: "Just Another Hand", "Patrick Hand", cursive;
+  --font-display: "Permanent Marker", "Rubik Dirt", cursive;
+  --font-mono: "Just Another Hand", "Patrick Hand", cursive;
+  --page-gradient: radial-gradient(circle at 18% 22%, rgba(255, 0, 77, 0.4), transparent 46%),
+    radial-gradient(circle at 78% 18%, rgba(0, 240, 255, 0.34), transparent 42%),
+    radial-gradient(circle at 62% 82%, rgba(57, 255, 20, 0.32), transparent 50%),
+    linear-gradient(160deg, var(--bg), var(--bg-2));
+  --page-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0.8px, transparent 1px),
+    radial-gradient(circle at 40% 70%, rgba(255, 0, 77, 0.12) 0.8px, transparent 1.2px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px);
+  --page-glow: radial-gradient(circle at 50% 26%, rgba(0, 240, 255, 0.34), transparent 65%);
+  --terminal-outline: 1px solid rgba(0, 240, 255, 0.42);
+  --hero-gradient: linear-gradient(140deg, rgba(255, 77, 109, 0.1), rgba(30, 230, 255, 0.08));
+  --nav-gradient: linear-gradient(140deg, rgba(57, 255, 20, 0.1), rgba(249, 248, 113, 0.08));
+  --wave-bg: rgba(10, 12, 16, 0.14);
+  --wave-border: rgba(0, 240, 255, 0.45);
+  --cta-gradient: linear-gradient(120deg, rgba(255, 77, 109, 0.32), rgba(30, 230, 255, 0.24));
+  --cta-gradient-alt: linear-gradient(120deg, rgba(57, 255, 20, 0.28), rgba(249, 248, 113, 0.2));
+  --chip-gradient-1: linear-gradient(130deg, rgba(255, 77, 109, 0.12), rgba(10, 12, 16, 0.05));
+  --chip-gradient-2: linear-gradient(130deg, rgba(30, 230, 255, 0.12), rgba(10, 12, 16, 0.05));
+  --chip-gradient-3: linear-gradient(130deg, rgba(249, 248, 113, 0.12), rgba(10, 12, 16, 0.05));
+}

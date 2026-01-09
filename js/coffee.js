@@ -1,6 +1,6 @@
 window.addEventListener("DOMContentLoaded", () => {
         const paypalEmail = "dh4wes@gmail.com";
-        const ensName = "danyel-ii";
+        const ensName = "danyel-ii.eth";
         const paypalBase = "https://www.paypal.com/cgi-bin/webscr?cmd=_donations";
         const paypalCTA = document.getElementById("paypal-cta");
         const cryptoCTA = document.getElementById("crypto-cta");
@@ -32,25 +32,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const updateCryptoLink = () => {
           cryptoCTA.href = buildCryptoUri();
-        };
-
-        const isLikelyMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-
-        const attemptDeepLink = (uri, immediateFallback = false) => {
-          if (immediateFallback) {
-            buildQR(buildCryptoUri());
-            openModal();
-            return;
-          }
-          const start = Date.now();
-          const timer = window.setTimeout(() => {
-            if (!document.hidden && Date.now() - start > 650) {
-              buildQR(buildCryptoUri());
-              openModal();
-            }
-          }, 700);
-          window.location.href = uri;
-          window.setTimeout(() => window.clearTimeout(timer), 1400);
         };
 
         const copyText = async (text) => {
@@ -116,8 +97,8 @@ window.addEventListener("DOMContentLoaded", () => {
             text: uri,
             width: 180,
             height: 180,
-            colorDark: "#d5ffe8",
-            colorLight: "#0a1118",
+            colorDark: "#00ff7b",
+            colorLight: "#020403",
             correctLevel: QRCode.CorrectLevel.M
           });
         };
@@ -147,9 +128,8 @@ window.addEventListener("DOMContentLoaded", () => {
         cryptoCTA?.addEventListener("click", (event) => {
           event.preventDefault();
           const uri = buildCryptoUri();
-          cryptoCTA.href = uri;
-          const immediateFallback = !isLikelyMobile();
-          attemptDeepLink(uri, immediateFallback);
+          buildQR(uri);
+          openModal();
         });
 
         updatePaypalLink();
@@ -269,15 +249,6 @@ window.addEventListener("DOMContentLoaded", () => {
           });
         });
 
-        document.querySelectorAll(".wallet-link").forEach((button) => {
-          button.addEventListener("click", () => {
-            const scheme = button.dataset.wallet;
-            const uri = buildCryptoUri();
-            const immediateFallback = !isLikelyMobile();
-            attemptDeepLink(scheme || uri, immediateFallback);
-          });
-        });
-
         if (!window.PIXI) {
           return;
         }
@@ -311,8 +282,8 @@ window.addEventListener("DOMContentLoaded", () => {
           const glyphs = [];
           const auroraBands = [];
           const palette = {
-            glow: 0x5af7a6,
-            accent: 0x8cfbff
+            glow: 0x00ff7b,
+            accent: 0x4cff88
           };
 
           const glyphChars = "01サトシナカモトሳይፐርፓንክ";

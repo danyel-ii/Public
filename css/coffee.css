@@ -1,15 +1,16 @@
 :root {
-        --bg: #070a0f;
-        --bg-2: #0b1218;
-        --terminal: rgba(12, 17, 24, 0.78);
-        --terminal-strong: rgba(10, 15, 22, 0.92);
-        --ink: #e9f2ff;
-        --muted: rgba(170, 190, 210, 0.68);
-        --accent: #5af7a6;
-        --accent-2: #8cfbff;
-        --accent-3: #ff6aa2;
-        --border: rgba(90, 247, 166, 0.25);
-        --glow: 0 25px 70px rgba(4, 10, 18, 0.6);
+        --bg: #020403;
+        --bg-2: #050b07;
+        --terminal: rgba(3, 8, 5, 0.85);
+        --terminal-strong: rgba(4, 12, 8, 0.95);
+        --ink: #d8ffe5;
+        --muted: rgba(115, 185, 140, 0.65);
+        --accent: #4cff88;
+        --accent-2: #00ff7b;
+        --accent-3: #7dffcb;
+        --accent-4: #19c969;
+        --border: rgba(76, 255, 136, 0.35);
+        --glow: 0 26px 70px rgba(0, 80, 35, 0.45);
         --radius: 22px;
         --mono: "SFMono-Regular", ui-monospace, "DejaVu Sans Mono", monospace;
       }
@@ -24,9 +25,9 @@
         font-family: var(--mono);
         color: var(--ink);
         background:
-          radial-gradient(circle at 20% 20%, rgba(90, 247, 166, 0.08), transparent 40%),
-          radial-gradient(circle at 80% 10%, rgba(140, 251, 255, 0.08), transparent 35%),
-          linear-gradient(150deg, #05070b, #0a121a 55%, #070c12);
+          radial-gradient(circle at 18% 18%, rgba(0, 255, 123, 0.14), transparent 50%),
+          radial-gradient(circle at 82% 12%, rgba(76, 255, 136, 0.18), transparent 45%),
+          linear-gradient(160deg, var(--bg), var(--bg-2) 60%, #010302);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -44,12 +45,13 @@
         position: fixed;
         inset: 0;
         background:
-          linear-gradient(180deg, rgba(4, 7, 10, 0.4), rgba(4, 7, 10, 0.85)),
+          linear-gradient(180deg, rgba(0, 5, 3, 0.35), rgba(0, 5, 3, 0.85)),
           repeating-linear-gradient(
             0deg,
-            rgba(4, 10, 16, 0.2) 0 2px,
-            rgba(4, 10, 16, 0.08) 2px 4px
+            rgba(0, 255, 123, 0.08) 0 2px,
+            rgba(0, 10, 6, 0.1) 2px 4px
           );
+        opacity: 0.55;
         pointer-events: none;
         z-index: 0;
       }
@@ -72,8 +74,8 @@
         left: 50%;
         bottom: 26px;
         transform: translateX(-50%) translateY(20px);
-        background: rgba(6, 12, 18, 0.9);
-        border: 1px solid rgba(140, 251, 255, 0.35);
+        background: rgba(2, 8, 4, 0.92);
+        border: 1px solid rgba(0, 255, 123, 0.45);
         color: var(--ink);
         padding: 8px 14px;
         border-radius: 999px;
@@ -117,9 +119,9 @@
       .glitch-hit {
         animation: text-glitch 0.5s steps(6, end);
         text-shadow:
-          0 0 6px rgba(140, 251, 255, 0.8),
-          -2px 0 rgba(255, 106, 162, 0.6),
-          2px 0 rgba(90, 247, 166, 0.6);
+          0 0 6px rgba(0, 255, 123, 0.7),
+          -2px 0 rgba(76, 255, 136, 0.6),
+          2px 0 rgba(125, 255, 203, 0.55);
       }
 
       .glitch-hit::after {
@@ -128,13 +130,13 @@
         inset: 0;
         background: repeating-linear-gradient(
             90deg,
-            rgba(255, 106, 162, 0.35) 0 6px,
-            rgba(90, 247, 166, 0.35) 6px 12px,
-            rgba(140, 251, 255, 0.35) 12px 18px
+            rgba(0, 255, 123, 0.35) 0 6px,
+            rgba(76, 255, 136, 0.3) 6px 12px,
+            rgba(125, 255, 203, 0.3) 12px 18px
           ),
           repeating-linear-gradient(
             0deg,
-            rgba(255, 255, 255, 0.15) 0 3px,
+            rgba(0, 20, 10, 0.12) 0 3px,
             transparent 3px 6px
           );
         mix-blend-mode: screen;
@@ -165,8 +167,8 @@
         position: absolute;
         inset: 12px;
         border-radius: calc(var(--radius) - 10px);
-        border: 1px dashed rgba(140, 251, 255, 0.25);
-        opacity: 0.65;
+        border: 1px dashed rgba(0, 255, 123, 0.35);
+        opacity: 0.6;
         pointer-events: none;
       }
 
@@ -184,7 +186,7 @@
       }
 
       .tagline {
-        color: var(--muted);
+        color: var(--accent-2);
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.28em;
@@ -203,16 +205,17 @@
       .status-pill {
         padding: 4px 10px;
         border-radius: 999px;
-        border: 1px solid rgba(90, 247, 166, 0.25);
-        background: rgba(6, 12, 18, 0.6);
+        border: 1px solid rgba(0, 255, 123, 0.35);
+        background: rgba(0, 8, 5, 0.75);
       }
 
       .wave-board {
         margin: 14px 0 22px;
         padding: 12px 14px;
         border-radius: 14px;
-        border: 1px solid rgba(140, 251, 255, 0.2);
-        background: rgba(6, 10, 16, 0.65);
+        border: 1px solid rgba(0, 255, 123, 0.28);
+        background: rgba(0, 8, 5, 0.75);
+        backdrop-filter: blur(4px);
       }
 
       .wave-board svg {
@@ -224,7 +227,7 @@
       .wave-text {
         font-size: 12px;
         letter-spacing: 0.08em;
-        fill: rgba(200, 235, 210, 0.6);
+        fill: rgba(125, 255, 203, 0.65);
       }
 
       .pane-grid {
@@ -234,13 +237,14 @@
       }
 
       .pane {
-        background: rgba(10, 15, 22, 0.62);
-        border: 1px solid rgba(140, 251, 255, 0.18);
+        background: rgba(0, 12, 7, 0.7);
+        border: 1px solid rgba(0, 255, 123, 0.25);
         border-radius: 18px;
         padding: 20px;
         position: relative;
         overflow: hidden;
         animation: float-card 6s ease-in-out infinite;
+        backdrop-filter: blur(4px);
       }
 
       .pane.paypal {
@@ -276,8 +280,8 @@
       input {
         width: 100%;
         border-radius: 12px;
-        border: 1px solid rgba(90, 247, 166, 0.25);
-        background: rgba(5, 10, 16, 0.75);
+        border: 1px solid rgba(0, 255, 123, 0.3);
+        background: rgba(0, 10, 6, 0.75);
         color: var(--ink);
         padding: 10px 12px;
         font-family: var(--mono);
@@ -303,8 +307,8 @@
         margin-top: 14px;
         padding: 14px 18px;
         border-radius: 999px;
-        border: 1px solid rgba(90, 247, 166, 0.5);
-        background: linear-gradient(120deg, rgba(90, 247, 166, 0.2), rgba(140, 251, 255, 0.2));
+        border: 1px solid rgba(0, 255, 123, 0.4);
+        background: linear-gradient(120deg, rgba(0, 255, 123, 0.2), rgba(0, 120, 60, 0.22));
         color: var(--ink);
         font-weight: 600;
         font-size: 15px;
@@ -325,7 +329,7 @@
 
       .cta:hover {
         transform: translateY(-1px) skewX(-1deg);
-        box-shadow: 0 10px 30px rgba(90, 247, 166, 0.2);
+        box-shadow: 0 12px 30px rgba(0, 255, 123, 0.2);
       }
 
       .cta:hover::after {
@@ -333,8 +337,8 @@
       }
 
       .cta.alt {
-        border-color: rgba(255, 106, 162, 0.5);
-        background: linear-gradient(120deg, rgba(255, 106, 162, 0.2), rgba(140, 251, 255, 0.2));
+        border-color: rgba(0, 255, 123, 0.4);
+        background: linear-gradient(120deg, rgba(0, 255, 123, 0.18), rgba(0, 80, 45, 0.22));
       }
 
       .row {
@@ -368,8 +372,8 @@
       .ghost {
         padding: 8px 12px;
         border-radius: 999px;
-        border: 1px solid rgba(140, 251, 255, 0.25);
-        background: rgba(5, 10, 16, 0.6);
+        border: 1px solid rgba(0, 255, 123, 0.3);
+        background: rgba(0, 10, 6, 0.7);
         color: var(--ink);
         font-size: 12px;
         cursor: pointer;
@@ -390,8 +394,8 @@
       }
 
       .brew-chip {
-        border: 1px solid rgba(140, 251, 255, 0.2);
-        background: rgba(6, 10, 16, 0.75);
+        border: 1px solid rgba(0, 255, 123, 0.22);
+        background: rgba(0, 10, 6, 0.75);
         padding: 10px 12px;
         border-radius: 14px;
         font-size: 11px;
@@ -426,7 +430,7 @@
       .modal-backdrop {
         position: absolute;
         inset: 0;
-        background: rgba(5, 8, 12, 0.8);
+        background: rgba(0, 4, 2, 0.8);
         backdrop-filter: blur(6px);
       }
 
@@ -434,8 +438,8 @@
         position: relative;
         z-index: 2;
         width: min(420px, 90vw);
-        background: rgba(10, 15, 22, 0.95);
-        border: 1px solid rgba(140, 251, 255, 0.25);
+        background: rgba(2, 8, 4, 0.95);
+        border: 1px solid rgba(0, 255, 123, 0.35);
         border-radius: 18px;
         padding: 20px;
         box-shadow: var(--glow);
@@ -449,7 +453,7 @@
         width: 200px;
         height: 200px;
         margin: 12px auto;
-        background: rgba(6, 10, 14, 0.8);
+        background: rgba(0, 10, 6, 0.85);
         display: flex;
         align-items: center;
         justify-content: center;

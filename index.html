@@ -256,6 +256,28 @@
         background: rgba(0, 0, 0, 0.18);
         color: inherit;
         text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      }
+      .nav-card.slop {
+        cursor: pointer;
+      }
+      .nav-card.slop.is-pulsing {
+        animation: slop-pulse 0.35s ease;
+      }
+      @keyframes slop-pulse {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+        }
+        45% {
+          transform: scale(0.985);
+          box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
+          border-color: rgba(255, 255, 255, 0.28);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+        }
       }
       .nav-card h2 {
         margin: 0;
@@ -271,6 +293,24 @@
         letter-spacing: 0.12em;
         text-transform: uppercase;
         background: rgba(0, 0, 0, 0.2);
+      }
+      .nav-card .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .nav-card .pill-link {
+        align-self: flex-start;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        padding: 6px 10px;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: rgba(0, 0, 0, 0.2);
+        color: inherit;
+        text-decoration: none;
+        display: inline-flex;
       }
 
       .hero-image {
@@ -299,6 +339,23 @@
         font-weight: 600;
         font-size: 14px;
         text-decoration: none;
+      }
+      .mint-panel {
+        width: auto;
+        padding: 0;
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .mint-cta {
+        padding: 12px 22px;
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
       }
       .cta.alt {
         background: transparent;
@@ -459,7 +516,7 @@
     <a class="cube-link three" href="coffee.html" aria-label="Raise green sheet" data-layer="2"></a>
 
     <div class="hud">
-      <div class="pill" id="chapter-pill">Chapter 1 / 4</div>
+      <div class="pill" id="chapter-pill">Chapter 1 / 5</div>
       <div class="pill" id="motion-pill">motion: on</div>
     </div>
     <div class="hint">Tap / click anywhere to remix the pattern.</div>
@@ -488,10 +545,13 @@
               <h2>Apps</h2>
               <div class="pill">open glassbox sha-256→</div>
             </a>
-            <a class="nav-card slop" href="https://anchor-zero.eth.limo">
+            <div class="nav-card slop">
               <h2>Slop</h2>
-              <div class="pill">browse slop →</div>
-            </a>
+              <div class="pill-row">
+                <a class="pill-link" href="https://anchor-zero.eth.limo">browse slop →</a>
+                <a class="pill-link" href="coffee.html">brew slop →</a>
+              </div>
+            </div>
             <a class="nav-card other" href="https://cubixles.xyz">
               <h2>cubixles_</h2>
               <div class="pill">cubixles_ →</div>
@@ -502,7 +562,7 @@
 
       <section class="chapter" data-chapter="2">
         <div class="panel">
-          <div class="kicker">chapter 3 / 4</div>
+          <div class="kicker">chapter 3 / 5</div>
           <h2>Signal map</h2>
           <p>Field notes, lab cadence, and portal map updates.</p>
           <div class="brew-grid" aria-label="Studybook metadata">
@@ -524,7 +584,7 @@
 
       <section class="chapter" data-chapter="3">
         <div class="panel">
-          <div class="kicker">chapter 4 / 4</div>
+          <div class="kicker">chapter 4 / 5</div>
           <h2>Tap the screen</h2>
           <p>Each tap randomizes the sculpture so the symbol never shows the same face twice.</p>
           <footer class="terminal-footer">
@@ -568,6 +628,12 @@
               </a>
             </div>
           </footer>
+        </div>
+      </section>
+
+      <section class="chapter" data-chapter="4">
+        <div class="panel mint-panel">
+          <button class="cta mint-cta" type="button">mint sculpture</button>
         </div>
       </section>
     </main>
@@ -781,7 +847,7 @@
 
       const planeGeo = new THREE.PlaneGeometry(1, 1, 1, 1);
 
-      const BASE_SEED = 22.0;
+      const BASE_SEED = 10 + Math.random() * 900;
       const baseLayer = (i) => ({
         grid: 6 + i * 0.8,
         squareMix: 0.45,
@@ -923,6 +989,7 @@
         { group: { x: 0.034, y: -0.026, s: 1.0, r: 0.012 }, grid: 0.38, squareMix: 0.04, holeProb: -0.03, radius: 0.018, pan: [0.01, -0.009] },
         { group: { x: -0.03, y: 0.03, s: 1.0, r: -0.01 }, grid: -0.32, squareMix: -0.034, holeProb: 0.026, radius: -0.016, pan: [-0.009, 0.01] },
         { group: { x: 0.023, y: -0.031, s: 1.0, r: 0.008 }, grid: 0.25, squareMix: 0.03, holeProb: 0.022, radius: -0.013, pan: [0.008, 0.01] },
+        { group: { x: -0.012, y: 0.022, s: 1.0, r: -0.006 }, grid: -0.14, squareMix: 0.02, holeProb: -0.015, radius: 0.01, pan: [0.006, 0.004] },
       ];
 
       const sceneLayerOffsets = sceneOffsets.map((offset, sceneIndex) =>
@@ -1028,6 +1095,18 @@
         { threshold: 0.55 }
       );
       sections.forEach((s) => io.observe(s));
+      const slopCard = document.querySelector(".nav-card.slop");
+      if (slopCard) {
+        slopCard.addEventListener("click", (event) => {
+          if (event.target && event.target.closest("a")) {
+            return;
+          }
+          slopCard.classList.remove("is-pulsing");
+          window.requestAnimationFrame(() => {
+            slopCard.classList.add("is-pulsing");
+          });
+        });
+      }
 
       const scrollToChapter = (index) => {
         if (!sections.length) {
@@ -1039,7 +1118,7 @@
       };
 
       const isInteractiveTarget = (target) =>
-        target && target.closest("a, button, input, textarea, select, label");
+        target && target.closest("a, button, input, textarea, select, label, .nav-card.slop");
 
       const isCoarsePointer =
         window.matchMedia && window.matchMedia("(pointer: coarse)").matches;

@@ -86,7 +86,7 @@
     vellumLayer = new PIXI.Container();
     shardLayer = new PIXI.Container();
     constellationLayer = new PIXI.Container();
-    constellationLayer.alpha = 0.6;
+    constellationLayer.alpha = 0.8;
     effectLayer = new PIXI.Container();
     linkLayer = new PIXI.Graphics();
     linkLayer.alpha = 0;
@@ -275,29 +275,34 @@
   }
 
   function setupConstellation() {
-    const pointCount = 72;
-    const positions = generateConstellationPositions(pointCount, window.innerWidth, window.innerHeight);
-    const paletteColors = [0xe5e4e2, 0xd8dbe1, 0xcdd2d8];
+    const pointCount = 140;
+    const positions = Array.from({ length: pointCount }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight
+    }));
+    const paletteColors = [0xe5e4e2, 0xd8dbe1, 0xcfd3d9];
     for (let i = 0; i < pointCount; i += 1) {
       const sprite = new PIXI.Sprite(PIXI.Texture.WHITE);
       const tint = paletteColors[Math.floor(Math.random() * paletteColors.length)];
       sprite.tint = tint;
-      const twinkle = 0.16 + Math.random() * 0.22;
+      const twinkle = 0.12 + Math.random() * 0.2;
       sprite.alpha = twinkle;
       sprite.anchor.set(0.5);
-      sprite.width = 1.4 + Math.random() * 2.2;
+      sprite.width = 0.8 + Math.random() * 1.8;
       sprite.height = sprite.width;
       const position = positions[i];
       sprite.position.set(position.x, position.y);
+      sprite.blendMode = screenBlendMode;
       constellationLayer.addChild(sprite);
       constellationPoints.push({
         sprite,
         color: tint,
-        velocityX: (Math.random() - 0.5) * 4,
-        velocityY: (Math.random() - 0.5) * 4,
+        velocityX: (Math.random() - 0.5) * 1.6,
+        velocityY: (Math.random() - 0.5) * 1.6,
         twinkle
       });
     }
+    constellationLayer.filters = [new PIXI.BlurFilter({ strength: 0.6 })];
   }
 
   function setupPointerFx() {
@@ -579,7 +584,7 @@
       sprite.x += point.velocityX * deltaSeconds;
       sprite.y += point.velocityY * deltaSeconds;
 
-      sprite.alpha = twinkle + Math.sin(performance.now() * 0.002 + sprite.x * 0.01) * 0.12;
+      sprite.alpha = twinkle + Math.sin(performance.now() * 0.0015 + sprite.x * 0.008) * 0.08;
 
       if (sprite.x < -20) sprite.x = width + 20;
       if (sprite.x > width + 20) sprite.x = -20;

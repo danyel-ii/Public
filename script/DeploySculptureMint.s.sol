@@ -22,7 +22,10 @@ contract DeploySculptureMint {
   event Deployed(address indexed contractAddress, address indexed feeRecipient, uint256 mintPriceWei);
 
   function run() external returns (SculptureMint deployed) {
-    uint256 deployerKey = vm.envOr("BASE_DEPLOYER_KEY", uint256(0));
+    uint256 deployerKey = vm.envOr("BASE_DEPLOYER_PRIVATE_KEY", uint256(0));
+    if (deployerKey == 0) {
+      deployerKey = vm.envOr("BASE_DEPLOYER_KEY", uint256(0));
+    }
     address feeRecipient = vm.envOr("EARNS_KEY", address(0));
     if (feeRecipient == address(0)) {
       revert MissingFeeRecipient();

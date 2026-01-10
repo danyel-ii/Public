@@ -106,19 +106,22 @@ contract SculptureMintTest {
     assert(keccak256(stored) == keccak256(PACKED_STATE));
   }
 
-  function testMintWithImageStoresRasterUri() public {
-    string memory uri = "ipfs://example-cid/sculpture.png";
-    mint.mintWithImage{ value: PRICE }(PACKED_STATE, uri);
-    string memory stored = mint.getRasterUri(1);
-    assert(keccak256(bytes(stored)) == keccak256(bytes(uri)));
+  function testStrictSvgDefaultsTrue() public view {
+    assert(mint.strictSvg());
   }
 
-  function testMintWithImageRejectsEmptyUri() public {
-    (bool ok, bytes memory data) = address(mint).call{ value: PRICE }(
-      abi.encodeWithSelector(mint.mintWithImage.selector, PACKED_STATE, "")
+  function testSetStrictSvgUpdates() public {
+    mint.setStrictSvg(false);
+    assert(!mint.strictSvg());
+  }
+
+  function testSetStrictSvgRejectsNonOwner() public {
+    vm.prank(address(0xB0B));
+    (bool ok, bytes memory data) = address(mint).call(
+      abi.encodeWithSelector(mint.setStrictSvg.selector, false)
     );
     assert(!ok);
-    assert(_revertSelector(data) == SculptureMint.EmptyRasterUri.selector);
+    assert(_revertSelector(data) == SculptureMint.NotOwner.selector);
   }
 
   function testMintRequiresPrice() public {
@@ -323,6 +326,12 @@ contract SculptureMintTest {
     );
     assert(!okToggle);
     assert(_revertSelector(dataToggle) == SculptureMint.MetadataFrozen.selector);
+
+    (bool okStrict, bytes memory dataStrict) = address(mint).call(
+      abi.encodeWithSelector(mint.setStrictSvg.selector, false)
+    );
+    assert(!okStrict);
+    assert(_revertSelector(dataStrict) == SculptureMint.MetadataFrozen.selector);
   }
 
   function testGetPackedStateRevertsIfNotMinted() public {

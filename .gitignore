@@ -6,3 +6,4 @@ cache/
 lib/
 broadcast/
 node_modules/
+lcov.info

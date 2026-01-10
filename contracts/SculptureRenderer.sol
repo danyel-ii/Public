@@ -98,6 +98,7 @@ library SculptureRenderer {
   }
 
   function renderSvg(State memory state) internal pure returns (string memory) {
+    string memory viewStr = toString(VIEW);
     string memory defs = string(
       abi.encodePacked(
         "<defs>",
@@ -108,7 +109,12 @@ library SculptureRenderer {
         "<feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' seed='2'/>",
         "<feColorMatrix type='saturate' values='0'/>",
         "<feComponentTransfer><feFuncA type='table' tableValues='0 0.12'/></feComponentTransfer>",
-        "</filter>",
+        "</filter>"
+      )
+    );
+    defs = string(
+      abi.encodePacked(
+        defs,
         "<linearGradient id='paper-light' x1='0' y1='0' x2='1' y2='1'>",
         "<stop offset='0%' stop-color='#ffffff' stop-opacity='0.16'/>",
         "<stop offset='70%' stop-color='#000000' stop-opacity='0.12'/>",
@@ -130,40 +136,10 @@ library SculptureRenderer {
       uint256 idx = orderIndex - 1;
       uint256 layerIndex = state.layerOrder[idx];
       string memory color = toHexColor(state.layerColors[layerIndex]);
-      string memory offset = "0";
       body = string(
         abi.encodePacked(
           body,
-          "<g transform='translate(",
-          offset,
-          " ",
-          offset,
-          ")' filter='url(#paper-shadow)'>",
-          "<rect width='",
-          toString(VIEW),
-          "' height='",
-          toString(VIEW),
-          "' fill='",
-          color,
-          "' mask='url(#mask-",
-          toString(layerIndex),
-          ")'/>",
-          "<rect width='",
-          toString(VIEW),
-          "' height='",
-          toString(VIEW),
-          "' fill='url(#paper-light)' opacity='0.18' mask='url(#mask-",
-          toString(layerIndex),
-          ")'/>",
-          "<rect width='",
-          toString(VIEW),
-          "' height='",
-          toString(VIEW),
-          "' fill='white' filter='url(#paper-grain)' opacity='0.06' mask='url(#mask-",
-          toString(layerIndex),
-          ")'/>",
-          bevels[layerIndex],
-          "</g>"
+          renderLayerGroup(layerIndex, viewStr, color, bevels[layerIndex])
         )
       );
     }
@@ -171,18 +147,76 @@ library SculptureRenderer {
     return string(
       abi.encodePacked(
         "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ",
-        toString(VIEW),
+        viewStr,
         " ",
-        toString(VIEW),
+        viewStr,
         "'>",
         defs,
         "<rect width='",
-        toString(VIEW),
+        viewStr,
         "' height='",
-        toString(VIEW),
+        viewStr,
         "' fill='#0b1220'/>",
         body,
         "</svg>"
+      )
+    );
+  }
+
+  function renderLayerGroup(
+    uint256 layerIndex,
+    string memory viewStr,
+    string memory color,
+    string memory bevel
+  ) internal pure returns (string memory) {
+    string memory layerStr = toString(layerIndex);
+    string memory rectBase = string(
+      abi.encodePacked(
+        "<rect width='",
+        viewStr,
+        "' height='",
+        viewStr,
+        "'"
+      )
+    );
+    string memory maskRef = string(
+      abi.encodePacked(
+        " mask='url(#mask-",
+        layerStr,
+        ")'/>"
+      )
+    );
+    string memory rect1 = string(
+      abi.encodePacked(
+        rectBase,
+        " fill='",
+        color,
+        "'",
+        maskRef
+      )
+    );
+    string memory rect2 = string(
+      abi.encodePacked(
+        rectBase,
+        " fill='url(#paper-light)' opacity='0.18'",
+        maskRef
+      )
+    );
+    string memory rect3 = string(
+      abi.encodePacked(
+        rectBase,
+        " fill='white' filter='url(#paper-grain)' opacity='0.06'",
+        maskRef
+      )
+    );
+    return string(
+      abi.encodePacked(
+        "<g transform='translate(0 0)' filter='url(#paper-shadow)'>",
+        rect1,
+        rect2,
+        rect3,
+        bevel,
+        "</g>"
       )
     );
   }
@@ -263,44 +297,91 @@ library SculptureRenderer {
       for (uint256 x = 0; x < cfg.gridCount; x++) {
         int256 cellX = int256(x);
         int256 cellY = int256(y);
-        uint256 roll = hash12(cellX * FP_I + cfg.seed, cellY * FP_I + cfg.seed);
-        if (roll > cfg.holeProbFp) {
+        string memory rectShape = buildCellShape(cfg, cellX, cellY);
+        if (bytes(rectShape).length == 0) {
           continue;
         }
-
-        int256 jitterX = int256(hash12(cellX * FP_I + cfg.seed17, cellY * FP_I + cfg.seed17));
-        jitterX = (jitterX - HALF_FP_I) * 35 / 100;
-        int256 jitterY = int256(hash12(cellX * FP_I + cfg.seed29, cellY * FP_I + cfg.seed29));
-        jitterY = (jitterY - HALF_FP_I) * 35 / 100;
-
-        bool perCellPick = hash12(cellX * FP_I + cfg.seed53, cellY * FP_I + cfg.seed53) >= uint256(HALF_FP_I);
-        uint256 mixAmt = (cfg.squareMixFp * 4) / 10 + (perCellPick ? (FP * 6) / 10 : 0);
-
-        uint256 rand = hash12(cellX * FP_I + cfg.seed42, cellY * FP_I + cfg.seed42);
-        uint256 r = ((cfg.radiusFp * 60) / 100) + (((cfg.radiusFp * 50) / 100) * rand) / FP;
-        uint256 corner = (r * (FP - mixAmt)) / FP;
-
-        int256 uvCenterX = ((cellX * FP_I + HALF_FP_I + jitterX) * FP_I) / int256(cfg.gridFp);
-        int256 uvCenterY = ((cellY * FP_I + HALF_FP_I + jitterY) * FP_I) / int256(cfg.gridFp);
-
-        int256 baseUvX = ((uvCenterX - HALF_FP_I - cfg.panX) * FP_I) / int256(cfg.scaleFp) + HALF_FP_I;
-        int256 baseUvY = ((uvCenterY - HALF_FP_I - cfg.panY) * FP_I) / int256(cfg.scaleFp) + HALF_FP_I;
-        baseUvX = clampSigned(baseUvX, 0, FP_I);
-        baseUvY = clampSigned(baseUvY, 0, FP_I);
-
-        int256 cx = (baseUvX * int256(VIEW)) / FP_I;
-        int256 cy = int256(VIEW) - (baseUvY * int256(VIEW)) / FP_I;
-        uint256 rPx = (r * FP * VIEW) / (cfg.gridFp * cfg.scaleFp);
-        if (rPx == 0) {
-          rPx = 1;
-        }
-        uint256 cornerPx = (corner * FP * VIEW) / (cfg.gridFp * cfg.scaleFp);
-
-        string memory rectShape = buildRectShape(cx, cy, rPx, cornerPx);
         holes = string(abi.encodePacked(holes, rectShape, " fill='black'/>"));
         bevelShapes = string(abi.encodePacked(bevelShapes, rectShape, "/>"));
       }
     }
+  }
+
+  function buildCellShape(
+    MaskConfig memory cfg,
+    int256 cellX,
+    int256 cellY
+  ) internal pure returns (string memory) {
+    if (!cellHasHole(cfg, cellX, cellY)) {
+      return "";
+    }
+
+    (int256 jitterX, int256 jitterY) = cellJitter(cfg, cellX, cellY);
+    (uint256 r, uint256 corner) = cellRadius(cfg, cellX, cellY);
+    (int256 cx, int256 cy) = cellCenter(cfg, cellX, cellY, jitterX, jitterY);
+    (uint256 rPx, uint256 cornerPx) = cellSize(cfg, r, corner);
+    return buildRectShape(cx, cy, rPx, cornerPx);
+  }
+
+  function cellHasHole(MaskConfig memory cfg, int256 cellX, int256 cellY) internal pure returns (bool) {
+    uint256 roll = hash12(cellX * FP_I + cfg.seed, cellY * FP_I + cfg.seed);
+    return roll <= cfg.holeProbFp;
+  }
+
+  function cellJitter(
+    MaskConfig memory cfg,
+    int256 cellX,
+    int256 cellY
+  ) internal pure returns (int256 jitterX, int256 jitterY) {
+    jitterX = int256(hash12(cellX * FP_I + cfg.seed17, cellY * FP_I + cfg.seed17));
+    jitterX = (jitterX - HALF_FP_I) * 35 / 100;
+    jitterY = int256(hash12(cellX * FP_I + cfg.seed29, cellY * FP_I + cfg.seed29));
+    jitterY = (jitterY - HALF_FP_I) * 35 / 100;
+  }
+
+  function cellRadius(
+    MaskConfig memory cfg,
+    int256 cellX,
+    int256 cellY
+  ) internal pure returns (uint256 r, uint256 corner) {
+    uint256 mixAmt = (cfg.squareMixFp * 4) / 10;
+    if (hash12(cellX * FP_I + cfg.seed53, cellY * FP_I + cfg.seed53) >= uint256(HALF_FP_I)) {
+      mixAmt += (FP * 6) / 10;
+    }
+    uint256 rand = hash12(cellX * FP_I + cfg.seed42, cellY * FP_I + cfg.seed42);
+    r = ((cfg.radiusFp * 60) / 100) + (((cfg.radiusFp * 50) / 100) * rand) / FP;
+    corner = (r * (FP - mixAmt)) / FP;
+  }
+
+  function cellCenter(
+    MaskConfig memory cfg,
+    int256 cellX,
+    int256 cellY,
+    int256 jitterX,
+    int256 jitterY
+  ) internal pure returns (int256 cx, int256 cy) {
+    int256 uvCenterX = ((cellX * FP_I + HALF_FP_I + jitterX) * FP_I) / int256(cfg.gridFp);
+    int256 uvCenterY = ((cellY * FP_I + HALF_FP_I + jitterY) * FP_I) / int256(cfg.gridFp);
+
+    int256 baseUvX = ((uvCenterX - HALF_FP_I - cfg.panX) * FP_I) / int256(cfg.scaleFp) + HALF_FP_I;
+    int256 baseUvY = ((uvCenterY - HALF_FP_I - cfg.panY) * FP_I) / int256(cfg.scaleFp) + HALF_FP_I;
+    baseUvX = clampSigned(baseUvX, 0, FP_I);
+    baseUvY = clampSigned(baseUvY, 0, FP_I);
+
+    cx = (baseUvX * int256(VIEW)) / FP_I;
+    cy = int256(VIEW) - (baseUvY * int256(VIEW)) / FP_I;
+  }
+
+  function cellSize(
+    MaskConfig memory cfg,
+    uint256 r,
+    uint256 corner
+  ) internal pure returns (uint256 rPx, uint256 cornerPx) {
+    rPx = (r * FP * VIEW) / (cfg.gridFp * cfg.scaleFp);
+    if (rPx == 0) {
+      rPx = 1;
+    }
+    cornerPx = (corner * FP * VIEW) / (cfg.gridFp * cfg.scaleFp);
   }
 
   function buildRectShape(

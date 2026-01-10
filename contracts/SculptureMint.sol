@@ -13,18 +13,43 @@ interface IERC721Receiver {
 contract SculptureMint {
   using SculptureRenderer for bytes;
 
+  error AlreadyOwner();
+  error AlreadyMinted(uint256 tokenId);
+  error FeeTransferFailed();
+  error IncorrectOwner();
+  error InsufficientBalance(uint256 available, uint256 required);
+  error MetadataFrozen();
+  error MintPaused();
+  error MintPriceNotMet(uint256 required, uint256 provided);
+  error NotApproved();
+  error NotMinted(uint256 tokenId);
+  error NotOwner();
+  error SelfApproval();
+  error UnsafeReceiver();
+  error ZeroAddress();
+
   event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
   event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
   event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+  event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
+  event IpfsBaseUriUpdated(string previousUri, string newUri);
+  event IpfsMetadataToggled(bool enabled);
+  event MetadataFrozenSet();
+  event MintPausedSet(bool paused);
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  event Withdrawal(address indexed to, uint256 amount);
+  event MintPriceUpdated(uint256 previousPrice, uint256 newPrice);
 
   string public name;
   string public symbol;
 
   uint256 public totalSupply;
   uint256 public mintPriceWei;
-  address public feeRecipient;
+  address payable public feeRecipient;
   address public owner;
+
+  bool public mintPaused;
+  bool public metadataFrozen;
 
   mapping(uint256 => address) private _owners;
   mapping(address => uint256) private _balances;
@@ -32,25 +57,29 @@ contract SculptureMint {
   mapping(address => mapping(address => bool)) private _operatorApprovals;
   mapping(uint256 => bytes) private _packedState;
 
-  uint256 internal constant SCALE = 10000;
-  uint256 internal constant FP = 1000000;
-  uint256 internal constant SEED_SCALE = 1000000;
-  uint256 internal constant GRID_MIN_FP = 3000000;
-  uint256 internal constant GRID_MAX_FP = 22000000;
-  uint256 internal constant HOLE_MIN_FP = 50000;
-  uint256 internal constant HOLE_MAX_FP = 950000;
-  uint256 internal constant RADIUS_MIN_FP = 180000;
-  uint256 internal constant RADIUS_MAX_FP = 600000;
-  int256 internal constant PAN_MIN_FP = -120000;
-  int256 internal constant PAN_MAX_FP = 120000;
-  uint256 internal constant SCALE_MIN_FP = 900000;
-  uint256 internal constant SCALE_MAX_FP = 1100000;
+  uint256 private constant LAYER_COUNT = 3;
+  uint256 private constant PARAM_COUNT = 7;
+  uint256 private constant SCALE = 10000;
+  uint256 private constant FP = 1000000;
+  uint256 private constant SEED_SCALE = 1000000;
+  uint256 private constant GRID_MIN_FP = 3000000;
+  uint256 private constant GRID_MAX_FP = 22000000;
+  uint256 private constant HOLE_MIN_FP = 50000;
+  uint256 private constant HOLE_MAX_FP = 950000;
+  uint256 private constant RADIUS_MIN_FP = 180000;
+  uint256 private constant RADIUS_MAX_FP = 600000;
+  int256 private constant PAN_MIN_FP = -120000;
+  int256 private constant PAN_MAX_FP = 120000;
+  uint256 private constant SCALE_MIN_FP = 900000;
+  uint256 private constant SCALE_MAX_FP = 1100000;
 
   bool public useIpfsMetadata;
   string public ipfsBaseUri;
 
   modifier onlyOwner() {
-    require(msg.sender == owner, "Not owner");
+    if (msg.sender != owner) {
+      revert NotOwner();
+    }
     _;
   }
 
@@ -60,11 +89,15 @@ contract SculptureMint {
     address feeRecipient_,
     uint256 mintPriceWei_
   ) {
+    if (feeRecipient_ == address(0)) {
+      revert ZeroAddress();
+    }
     name = name_;
     symbol = symbol_;
     owner = msg.sender;
-    feeRecipient = feeRecipient_;
+    feeRecipient = payable(feeRecipient_);
     mintPriceWei = mintPriceWei_;
+    emit OwnershipTransferred(address(0), msg.sender);
   }
 
   function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
@@ -75,31 +108,43 @@ contract SculptureMint {
   }
 
   function balanceOf(address account) public view returns (uint256) {
-    require(account != address(0), "Zero address");
+    if (account == address(0)) {
+      revert ZeroAddress();
+    }
     return _balances[account];
   }
 
   function ownerOf(uint256 tokenId) public view returns (address) {
     address tokenOwner = _owners[tokenId];
-    require(tokenOwner != address(0), "Not minted");
+    if (tokenOwner == address(0)) {
+      revert NotMinted(tokenId);
+    }
     return tokenOwner;
   }
 
   function approve(address to, uint256 tokenId) public {
     address tokenOwner = ownerOf(tokenId);
-    require(to != tokenOwner, "Already owner");
-    require(msg.sender == tokenOwner || isApprovedForAll(tokenOwner, msg.sender), "Not approved");
+    if (to == tokenOwner) {
+      revert AlreadyOwner();
+    }
+    if (msg.sender != tokenOwner && !isApprovedForAll(tokenOwner, msg.sender)) {
+      revert NotApproved();
+    }
     _tokenApprovals[tokenId] = to;
     emit Approval(tokenOwner, to, tokenId);
   }
 
   function getApproved(uint256 tokenId) public view returns (address) {
-    require(_exists(tokenId), "Not minted");
+    if (!_exists(tokenId)) {
+      revert NotMinted(tokenId);
+    }
     return _tokenApprovals[tokenId];
   }
 
   function setApprovalForAll(address operator, bool approved) public {
-    require(operator != msg.sender, "Self approval");
+    if (operator == msg.sender) {
+      revert SelfApproval();
+    }
     _operatorApprovals[msg.sender][operator] = approved;
     emit ApprovalForAll(msg.sender, operator, approved);
   }
@@ -109,9 +154,15 @@ contract SculptureMint {
   }
 
   function transferFrom(address from, address to, uint256 tokenId) public {
-    require(_isApprovedOrOwner(msg.sender, tokenId), "Not approved");
-    require(ownerOf(tokenId) == from, "Wrong owner");
-    require(to != address(0), "Zero address");
+    if (!_isApprovedOrOwner(msg.sender, tokenId)) {
+      revert NotApproved();
+    }
+    if (ownerOf(tokenId) != from) {
+      revert IncorrectOwner();
+    }
+    if (to == address(0)) {
+      revert ZeroAddress();
+    }
     _approve(address(0), tokenId);
     _balances[from] -= 1;
     _balances[to] += 1;
@@ -125,34 +176,46 @@ contract SculptureMint {
 
   function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public {
     transferFrom(from, to, tokenId);
-    require(_checkOnERC721Received(msg.sender, from, to, tokenId, data), "Unsafe receiver");
+    if (!_checkOnERC721Received(msg.sender, from, to, tokenId, data)) {
+      revert UnsafeReceiver();
+    }
   }
 
   function mint(bytes calldata packed) external payable returns (uint256 tokenId) {
-    require(msg.value >= mintPriceWei, "Mint price");
-    tokenId = ++totalSupply;
-    _safeMint(msg.sender, tokenId, "");
+    if (mintPaused) {
+      revert MintPaused();
+    }
+    packed.validatePackedState();
+    if (msg.value < mintPriceWei) {
+      revert MintPriceNotMet(mintPriceWei, msg.value);
+    }
+    tokenId = totalSupply + 1;
     _packedState[tokenId] = packed;
+    totalSupply = tokenId;
+    _safeMint(msg.sender, tokenId, "");
     _payout(msg.value);
   }
 
   function getPackedState(uint256 tokenId) external view returns (bytes memory) {
-    require(_exists(tokenId), "Not minted");
+    if (!_exists(tokenId)) {
+      revert NotMinted(tokenId);
+    }
     return _packedState[tokenId];
   }
 
   function tokenURI(uint256 tokenId) public view returns (string memory) {
-    require(_exists(tokenId), "Not minted");
+    if (!_exists(tokenId)) {
+      revert NotMinted(tokenId);
+    }
     if (useIpfsMetadata && bytes(ipfsBaseUri).length > 0) {
       return string(abi.encodePacked(ipfsBaseUri, toString(tokenId)));
     }
     bytes memory packed = _packedState[tokenId];
-    string memory svg = SculptureRenderer.render(packed);
+    SculptureRenderer.State memory state = SculptureRenderer.decode(packed);
+    string memory svg = SculptureRenderer.renderSvg(state);
     string memory image = string(
       abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svg)))
     );
-
-    SculptureRenderer.State memory state = SculptureRenderer.decode(packed);
     string memory attrs = buildAttributes(state);
     string memory json = string(
       abi.encodePacked(
@@ -178,35 +241,84 @@ contract SculptureMint {
   }
 
   function setMintPriceWei(uint256 newPriceWei) external onlyOwner {
+    emit MintPriceUpdated(mintPriceWei, newPriceWei);
     mintPriceWei = newPriceWei;
   }
 
   function setFeeRecipient(address recipient) external onlyOwner {
-    feeRecipient = recipient;
+    if (recipient == address(0)) {
+      revert ZeroAddress();
+    }
+    emit FeeRecipientUpdated(feeRecipient, recipient);
+    feeRecipient = payable(recipient);
   }
 
   function setIpfsBaseUri(string calldata uri) external onlyOwner {
+    if (metadataFrozen) {
+      revert MetadataFrozen();
+    }
+    emit IpfsBaseUriUpdated(ipfsBaseUri, uri);
     ipfsBaseUri = uri;
   }
 
   function setUseIpfsMetadata(bool enabled) external onlyOwner {
+    if (metadataFrozen) {
+      revert MetadataFrozen();
+    }
+    emit IpfsMetadataToggled(enabled);
     useIpfsMetadata = enabled;
   }
 
+  function setMintPaused(bool paused) external onlyOwner {
+    mintPaused = paused;
+    emit MintPausedSet(paused);
+  }
+
+  function freezeMetadata() external onlyOwner {
+    if (metadataFrozen) {
+      revert MetadataFrozen();
+    }
+    metadataFrozen = true;
+    emit MetadataFrozenSet();
+  }
+
   function transferOwnership(address newOwner) external onlyOwner {
-    require(newOwner != address(0), "Zero address");
+    if (newOwner == address(0)) {
+      revert ZeroAddress();
+    }
     emit OwnershipTransferred(owner, newOwner);
     owner = newOwner;
   }
 
+  function withdraw(address to, uint256 amount) external onlyOwner {
+    if (to == address(0)) {
+      revert ZeroAddress();
+    }
+    uint256 balance = address(this).balance;
+    if (amount > balance) {
+      revert InsufficientBalance(balance, amount);
+    }
+    (bool ok, ) = payable(to).call{ value: amount }("");
+    if (!ok) {
+      revert FeeTransferFailed();
+    }
+    emit Withdrawal(to, amount);
+  }
+
   function _safeMint(address to, uint256 tokenId, bytes memory data) internal {
     _mint(to, tokenId);
-    require(_checkOnERC721Received(msg.sender, address(0), to, tokenId, data), "Unsafe receiver");
+    if (!_checkOnERC721Received(msg.sender, address(0), to, tokenId, data)) {
+      revert UnsafeReceiver();
+    }
   }
 
   function _mint(address to, uint256 tokenId) internal {
-    require(to != address(0), "Zero address");
-    require(!_exists(tokenId), "Already minted");
+    if (to == address(0)) {
+      revert ZeroAddress();
+    }
+    if (_exists(tokenId)) {
+      revert AlreadyMinted(tokenId);
+    }
     _balances[to] += 1;
     _owners[tokenId] = to;
     emit Transfer(address(0), to, tokenId);
@@ -244,11 +356,16 @@ contract SculptureMint {
   }
 
   function _payout(uint256 amount) internal {
-    if (feeRecipient == address(0) || amount == 0) {
+    if (amount == 0) {
       return;
     }
+    if (feeRecipient == address(0)) {
+      revert ZeroAddress();
+    }
     (bool ok, ) = feeRecipient.call{ value: amount }("");
-    require(ok, "Fee transfer failed");
+    if (!ok) {
+      revert FeeTransferFailed();
+    }
   }
 
   function buildAttributes(SculptureRenderer.State memory state) internal pure returns (string memory) {
@@ -272,7 +389,7 @@ contract SculptureMint {
       )
     );
 
-    for (uint256 i = 0; i < 3; i++) {
+    for (uint256 i = 0; i < LAYER_COUNT; i++) {
       (
         uint256 grid,
         uint256 squareMix,
@@ -320,7 +437,7 @@ contract SculptureMint {
     int256 panY,
     uint256 scale
   ) {
-    uint16[7] memory params = state.params[layerIndex];
+    uint16[PARAM_COUNT] memory params = state.params[layerIndex];
     grid = mapParam(params[0], GRID_MIN_FP, GRID_MAX_FP);
     squareMix = mapParam(params[1], 0, FP);
     holeProb = mapParam(params[2], HOLE_MIN_FP, HOLE_MAX_FP);
@@ -332,18 +449,6 @@ contract SculptureMint {
 
   function layerTrait(string memory label, uint256 layerIndex) internal pure returns (string memory) {
     return string(abi.encodePacked("Layer ", toString(layerIndex + 1), " ", label));
-  }
-
-  function layerOrderString(uint8[3] memory order) internal pure returns (string memory) {
-    return string(
-      abi.encodePacked(
-        toString(order[0]),
-        "-",
-        toString(order[1]),
-        "-",
-        toString(order[2])
-      )
-    );
   }
 
   function traitNumber(string memory name_, string memory value) internal pure returns (string memory) {
@@ -394,21 +499,6 @@ contract SculptureMint {
       padded[offset + i] = raw[i];
     }
     return string(padded);
-  }
-
-  function toHexColor(uint24 value) internal pure returns (string memory) {
-    bytes memory buffer = new bytes(7);
-    buffer[0] = "#";
-    uint24 temp = value;
-    for (uint256 i = 0; i < 6; i++) {
-      buffer[6 - i] = hexChar(uint8(temp & 0x0f));
-      temp >>= 4;
-    }
-    return string(buffer);
-  }
-
-  function hexChar(uint8 value) internal pure returns (bytes1) {
-    return value < 10 ? bytes1(value + 48) : bytes1(value + 87);
   }
 
   function toString(uint256 value) internal pure returns (string memory) {

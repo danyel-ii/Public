@@ -29,18 +29,29 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampSigned = (value, min, max) => Math.min(max, Math.max(min, value));
 const div = (value, denom) => Math.trunc(value / denom);
 const mod = (value, modulus) => ((value % modulus) + modulus) % modulus;
+const divBig = (value, denom) => value / denom;
+const modBig = (value, modulus) => ((value % modulus) + modulus) % modulus;
+const normalizeSvg = (svg) =>
+  svg
+    .replace(/\"/g, "'")
+    .replace(/\s+\/>/g, "/>")
+    .replace(/\s{2,}/g, " ");
 
+const FP_BIG = BigInt(FP);
+const CONST_33_BIG = BigInt(CONST_33);
 const hash12 = (x, y) => {
-  const p3x = mod(div(x * 1031, 10000), FP);
-  const p3y = mod(div(y * 1031, 10000), FP);
+  const xb = BigInt(x);
+  const yb = BigInt(y);
+  const p3x = modBig(divBig(xb * 1031n, 10000n), FP_BIG);
+  const p3y = modBig(divBig(yb * 1031n, 10000n), FP_BIG);
   const p3z = p3x;
   const dot =
-    div(p3x * (p3y + CONST_33) + p3y * (p3z + CONST_33) + p3z * (p3x + CONST_33), FP);
+    divBig(p3x * (p3y + CONST_33_BIG) + p3y * (p3z + CONST_33_BIG) + p3z * (p3x + CONST_33_BIG), FP_BIG);
   const qx = p3x + dot;
   const qy = p3y + dot;
   const qz = p3z + dot;
-  const prod = div((qx + qy) * qz, FP);
-  return mod(prod, FP);
+  const prod = divBig((qx + qy) * qz, FP_BIG);
+  return Number(modBig(prod, FP_BIG));
 };
 
 const mapParam = (value, min, max) => min + div(value * (max - min), PACK_SCALE);
@@ -122,7 +133,7 @@ const buildMask = (state, layerIndex) => {
   const holes = [];
   const bevelShapes = [];
   const cellPx = div(VIEW * FP, gridFp);
-  const strokeWidth = Math.max(1, Math.min(6, Math.round(cellPx * 0.06)));
+  const strokeWidth = Math.max(1, Math.min(6, Math.floor(cellPx / 16)));
   for (let y = 0; y < gridCount; y += 1) {
     for (let x = 0; x < gridCount; x += 1) {
       const cellXFp = x * FP + seedFp;
@@ -152,8 +163,8 @@ const buildMask = (state, layerIndex) => {
 
       const cx = div(baseUvX * VIEW, FP);
       const cy = VIEW - div(baseUvY * VIEW, FP);
-      const rPx = Math.max(1, div(div(r * FP * VIEW, gridFp), scaleFp));
-      const cornerPx = Math.max(0, div(div(corner * FP * VIEW, gridFp), scaleFp));
+      const rPx = Math.max(1, div(r * FP * VIEW, gridFp * scaleFp));
+      const cornerPx = Math.max(0, div(corner * FP * VIEW, gridFp * scaleFp));
       const size = rPx * 2;
 
       const shape = `<rect x="${cx - rPx}" y="${cy - rPx}" width="${size}" height="${size}" rx="${cornerPx}" ry="${cornerPx}" />`;
@@ -236,4 +247,4 @@ export const renderSvg = (state) => {
   );
 };
 
-export const renderSvgFromPacked = (hex) => renderSvg(decodePacked(hex));
+export const renderSvgFromPacked = (hex) => normalizeSvg(renderSvg(decodePacked(hex)));

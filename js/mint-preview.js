@@ -11,11 +11,18 @@ const mintStatusEl = document.getElementById("mint-status");
 const chainEl = document.getElementById("mint-chain");
 const contractEl = document.getElementById("mint-address");
 const priceEl = document.getElementById("mint-price");
+const mintingStatusEl = document.getElementById("minting-status");
+const metadataStatusEl = document.getElementById("metadata-status");
+const walletStatusEl = document.getElementById("wallet-status");
 
 const config = window.MINT_CONFIG || {};
 const MINT_ABI = [
   "function mint(bytes packed) payable returns (uint256)",
   "function mintPriceWei() view returns (uint256)",
+  "function mintPaused() view returns (bool)",
+  "function metadataFrozen() view returns (bool)",
+  "function useIpfsMetadata() view returns (bool)",
+  "function ipfsBaseUri() view returns (string)",
 ];
 
 const setStatus = (message) => {
@@ -27,6 +34,12 @@ const setStatus = (message) => {
 const setMintStatus = (message) => {
   if (mintStatusEl) {
     mintStatusEl.textContent = message;
+  }
+};
+
+const setWalletStatus = (message) => {
+  if (walletStatusEl) {
+    walletStatusEl.textContent = message;
   }
 };
 
@@ -53,13 +66,34 @@ const showConfig = () => {
   }
 };
 
+const formatStatusError = (err, fallback) => {
+  if (!err) return fallback;
+  if (err.code === 4001 || err.code === "ACTION_REJECTED") {
+    return "Wallet request was rejected.";
+  }
+  const message = err.shortMessage || err.message || fallback;
+  if (message.includes("MintPaused")) {
+    return "Minting is currently paused.";
+  }
+  if (message.includes("MintPriceNotMet")) {
+    return "Mint price not met. Check the required amount.";
+  }
+  if (message.includes("InvalidPackedLength")) {
+    return "Packed state is invalid. Refresh the preview.";
+  }
+  if (message.includes("MetadataFrozen")) {
+    return "Metadata has been permanently frozen.";
+  }
+  return message;
+};
+
 const loadPreview = (packed) => {
   try {
     const state = decodePacked(packed);
     const svg = renderSvgFromPacked(packed);
     previewEl.innerHTML = svg;
     packedEl.value = packed;
-    setStatus(`Scene ${state.sceneIndex + 1} · Seed ${state.baseSeed}`);
+    setStatus(`Preview loaded: Scene ${state.sceneIndex + 1}, Seed ${state.baseSeed}.`);
 
     if (downloadLink) {
       const blob = new Blob([svg], { type: "image/svg+xml" });
@@ -68,7 +102,7 @@ const loadPreview = (packed) => {
       downloadLink.download = "paper-sculpture.svg";
     }
   } catch (err) {
-    setStatus("Failed to decode packed state.");
+    setStatus("Failed to decode packed state. Try reloading the preview.");
     if (packedEl) {
       packedEl.value = packed;
     }
@@ -95,9 +129,9 @@ if (copyButton) {
     if (!packed) return;
     try {
       await navigator.clipboard.writeText(packed);
-      setStatus("Packed state copied.");
+      setStatus("Packed state copied to clipboard.");
     } catch (err) {
-      setStatus("Copy failed.");
+      setStatus("Copy failed. Check clipboard permissions.");
     }
   });
 }
@@ -106,6 +140,10 @@ let walletProvider = null;
 let signer = null;
 let contract = null;
 let mintPriceWei = null;
+let mintPaused = null;
+let metadataFrozen = null;
+let useIpfsMetadata = null;
+let ipfsBaseUri = null;
 
 const ensureChain = async (provider) => {
   if (!config.chainId) return;
@@ -151,11 +189,11 @@ const getWalletProvider = async () => {
 
 const connectWallet = async () => {
   if (!window.ethers) {
-    setMintStatus("Wallet SDK not loaded.");
+    setMintStatus("Wallet SDK not loaded. Refresh the page.");
     return;
   }
   if (!isConfigured()) {
-    setMintStatus("Mint contract not configured.");
+    setMintStatus("Mint contract not configured yet.");
     return;
   }
   try {
@@ -169,28 +207,61 @@ const connectWallet = async () => {
     const browserProvider = new window.ethers.BrowserProvider(walletProvider);
     signer = await browserProvider.getSigner();
     contract = new window.ethers.Contract(config.contractAddress, MINT_ABI, signer);
-    mintPriceWei = await contract.mintPriceWei();
+    [
+      mintPriceWei,
+      mintPaused,
+      metadataFrozen,
+      useIpfsMetadata,
+      ipfsBaseUri,
+    ] = await Promise.all([
+      contract.mintPriceWei(),
+      contract.mintPaused(),
+      contract.metadataFrozen(),
+      contract.useIpfsMetadata(),
+      contract.ipfsBaseUri(),
+    ]);
     if (priceEl) {
       priceEl.textContent = `${window.ethers.formatEther(mintPriceWei)} ETH`;
+    }
+    if (mintingStatusEl) {
+      mintingStatusEl.textContent = mintPaused ? "Paused" : "Open";
+    }
+    if (metadataStatusEl) {
+      if (useIpfsMetadata && ipfsBaseUri) {
+        metadataStatusEl.textContent = metadataFrozen ? "IPFS (frozen)" : "IPFS (mutable)";
+      } else {
+        metadataStatusEl.textContent = metadataFrozen ? "On-chain (frozen)" : "On-chain (mutable)";
+      }
     }
     if (mintButton) {
       mintButton.disabled = false;
     }
-    setMintStatus(`Connected: ${formatAddress(await signer.getAddress())}`);
+    const address = await signer.getAddress();
+    setWalletStatus(`Connected: ${formatAddress(address)}`);
+    setMintStatus("Wallet connected. Ready to mint.");
   } catch (err) {
-    setMintStatus("Wallet connection failed.");
+    setMintStatus(formatStatusError(err, "Wallet connection failed."));
   }
 };
 
 const mintNow = async () => {
   if (!contract || !signer || !mintPriceWei || !packed) {
-    setMintStatus("Connect a wallet first.");
+    setMintStatus("Connect a wallet to continue.");
     return;
   }
   try {
-    setMintStatus("Submitting mint...");
+    if (mintPaused) {
+      setMintStatus("Minting is paused.");
+      return;
+    }
+    setMintStatus("Submitting mint transaction...");
     const tx = await contract.mint(packed, { value: mintPriceWei });
-    setMintStatus(`Minting: ${tx.hash}`);
+    if (config.blockExplorerUrl) {
+      const base = config.blockExplorerUrl.replace(/\/$/, "");
+      setMintStatus(`Transaction submitted. View on explorer: ${base}/tx/${tx.hash}`);
+    } else {
+      setMintStatus(`Transaction submitted: ${formatAddress(tx.hash)}`);
+    }
     const receipt = await tx.wait();
     const transfer = receipt.logs
       .map((log) => {
@@ -202,12 +273,12 @@ const mintNow = async () => {
       })
       .find((parsed) => parsed && parsed.name === "Transfer");
     if (transfer) {
-      setMintStatus(`Minted token #${transfer.args.tokenId.toString()}`);
+      setMintStatus(`Minted token #${transfer.args.tokenId.toString()}.`);
     } else {
-      setMintStatus("Mint confirmed.");
+      setMintStatus("Mint confirmed. Check your wallet for the token.");
     }
   } catch (err) {
-    setMintStatus("Mint failed.");
+    setMintStatus(formatStatusError(err, "Mint failed. Please try again."));
   }
 };
 

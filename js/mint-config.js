@@ -9,5 +9,5 @@ window.MINT_CONFIG = {
     symbol: "ETH",
     decimals: 18,
   },
-  walletConnectProjectId: "",
+  walletConnectProjectId: "8640f2c711088eef523c7fd42d0cd18f",
 };

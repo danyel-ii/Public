@@ -106,13 +106,28 @@ contract SculptureMintTest {
     assert(keccak256(stored) == keccak256(PACKED_STATE));
   }
 
-  function testStrictSvgDefaultsTrue() public view {
-    assert(mint.strictSvg());
+  function testStrictSvgDefaultsFalse() public view {
+    assert(!mint.strictSvg());
   }
 
   function testSetStrictSvgUpdates() public {
     mint.setStrictSvg(false);
     assert(!mint.strictSvg());
+  }
+
+  function testMintWithImageStoresRasterUri() public {
+    string memory uri = "ipfs://example-cid/sculpture.png";
+    mint.mintWithImage{ value: PRICE }(PACKED_STATE, uri);
+    string memory stored = mint.getRasterUri(1);
+    assert(keccak256(bytes(stored)) == keccak256(bytes(uri)));
+  }
+
+  function testMintWithImageRejectsEmptyUri() public {
+    (bool ok, bytes memory data) = address(mint).call{ value: PRICE }(
+      abi.encodeWithSelector(mint.mintWithImage.selector, PACKED_STATE, "")
+    );
+    assert(!ok);
+    assert(_revertSelector(data) == SculptureMint.EmptyRasterUri.selector);
   }
 
   function testSetStrictSvgRejectsNonOwner() public {

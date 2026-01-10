@@ -21,6 +21,7 @@ contract SculptureMint {
   error MetadataFrozen();
   error MintPaused();
   error MintPriceNotMet(uint256 required, uint256 provided);
+  error EmptyRasterUri();
   error NotApproved();
   error NotMinted(uint256 tokenId);
   error NotOwner();
@@ -38,6 +39,7 @@ contract SculptureMint {
   event MetadataFrozenSet();
   event MintPausedSet(bool paused);
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  event RasterUriStored(uint256 indexed tokenId, string uri);
   event StrictSvgSet(bool enabled);
   event Withdrawal(address indexed to, uint256 amount);
   event MintPriceUpdated(uint256 previousPrice, uint256 newPrice);
@@ -62,6 +64,7 @@ contract SculptureMint {
   mapping(uint256 => address) private _tokenApprovals;
   mapping(address => mapping(address => bool)) private _operatorApprovals;
   mapping(uint256 => bytes) private _packedState;
+  mapping(uint256 => string) private _rasterUri;
 
   uint256 private constant LAYER_COUNT = 3;
   uint256 private constant PARAM_COUNT = 7;
@@ -78,6 +81,7 @@ contract SculptureMint {
   int256 private constant PAN_MAX_FP = 120000;
   uint256 private constant SCALE_MIN_FP = 900000;
   uint256 private constant SCALE_MAX_FP = 1100000;
+  string private constant IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 
   bool public strictSvg;
 
@@ -114,7 +118,7 @@ contract SculptureMint {
     owner = msg.sender;
     feeRecipient = payable(feeRecipient_);
     mintPriceWei = mintPriceWei_;
-    strictSvg = true;
+    strictSvg = false;
     emit OwnershipTransferred(address(0), msg.sender);
   }
 
@@ -200,6 +204,20 @@ contract SculptureMint {
   }
 
   function mint(bytes calldata packed) external payable nonReentrant returns (uint256 tokenId) {
+    tokenId = _mintPacked(packed, "");
+  }
+
+  function mintWithImage(
+    bytes calldata packed,
+    string calldata rasterUri
+  ) external payable nonReentrant returns (uint256 tokenId) {
+    if (bytes(rasterUri).length == 0) {
+      revert EmptyRasterUri();
+    }
+    tokenId = _mintPacked(packed, rasterUri);
+  }
+
+  function _mintPacked(bytes calldata packed, string memory rasterUri) internal returns (uint256 tokenId) {
     if (mintPaused) {
       revert MintPaused();
     }
@@ -209,6 +227,10 @@ contract SculptureMint {
     }
     tokenId = totalSupply + 1;
     _packedState[tokenId] = packed;
+    if (bytes(rasterUri).length > 0) {
+      _rasterUri[tokenId] = rasterUri;
+      emit RasterUriStored(tokenId, rasterUri);
+    }
     totalSupply = tokenId;
     _safeMint(msg.sender, tokenId, "");
     _payout(msg.value);
@@ -221,6 +243,13 @@ contract SculptureMint {
     return _packedState[tokenId];
   }
 
+  function getRasterUri(uint256 tokenId) external view returns (string memory) {
+    if (!_exists(tokenId)) {
+      revert NotMinted(tokenId);
+    }
+    return _rasterUri[tokenId];
+  }
+
   function tokenURI(uint256 tokenId) public view returns (string memory) {
     if (!_exists(tokenId)) {
       revert NotMinted(tokenId);
@@ -231,10 +260,12 @@ contract SculptureMint {
     bytes memory packed = _packedState[tokenId];
     SculptureRenderer.State memory state = SculptureRenderer.decode(packed);
     string memory preview = SculptureRenderer.renderSvgPreview(state);
-    string memory animation = strictSvg ? preview : SculptureRenderer.renderSvg(state);
-    string memory image = string(
-      abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview)))
-    );
+    string memory fullSvg = SculptureRenderer.renderSvg(state);
+    string memory svgForMetadata = strictSvg ? preview : fullSvg;
+    string memory rasterUri = _rasterUri[tokenId];
+    string memory image = bytes(rasterUri).length > 0
+      ? resolveGateway(rasterUri)
+      : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
     string memory attrs = buildAttributes(state);
     string memory json = string(
       abi.encodePacked(
@@ -245,11 +276,14 @@ contract SculptureMint {
         "\"image\":\"",
         image,
         "\",",
+        "\"image_raster\":\"",
+        rasterUri,
+        "\",",
         "\"image_data\":\"",
-        preview,
+        svgForMetadata,
         "\",",
         "\"animation_url\":\"data:image/svg+xml;base64,",
-        Base64.encode(bytes(animation)),
+        Base64.encode(bytes(svgForMetadata)),
         "\",",
         "\"attributes\":",
         attrs,
@@ -605,6 +639,24 @@ contract SculptureMint {
       return toFixed(uint256(value), scale, decimals);
     }
     return string(abi.encodePacked("-", toFixed(uint256(-value), scale, decimals)));
+  }
+
+  function resolveGateway(string memory uri) internal pure returns (string memory) {
+    bytes memory uriBytes = bytes(uri);
+    bytes memory prefix = bytes("ipfs://");
+    if (uriBytes.length < prefix.length) {
+      return uri;
+    }
+    for (uint256 i = 0; i < prefix.length; i++) {
+      if (uriBytes[i] != prefix[i]) {
+        return uri;
+      }
+    }
+    bytes memory suffix = new bytes(uriBytes.length - prefix.length);
+    for (uint256 i = prefix.length; i < uriBytes.length; i++) {
+      suffix[i - prefix.length] = uriBytes[i];
+    }
+    return string(abi.encodePacked(IPFS_GATEWAY, suffix));
   }
 
   function padLeft(uint256 value, uint256 width) internal pure returns (string memory) {

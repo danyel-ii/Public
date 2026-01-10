@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mint Preview - Paper Sculpture</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1220;
+        --panel: rgba(15, 22, 36, 0.72);
+        --ink: #eaf0ff;
+        --muted: #9aa3b2;
+        --accent: #67e8f9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(1200px 800px at 20% 20%, #14233a, var(--bg));
+        color: var(--ink);
+        font-family: "Space Grotesk", "Avenir Next", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 18px;
+      }
+      main {
+        width: min(980px, 100%);
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(12px);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(20px, 2vw, 28px);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .preview-wrap {
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        border-radius: 16px;
+        padding: 16px;
+        background: rgba(0, 0, 0, 0.15);
+        display: grid;
+        place-items: center;
+        min-height: 420px;
+      }
+      #preview svg {
+        width: min(520px, 100%);
+        height: auto;
+        display: block;
+      }
+      .controls {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .mint-meta {
+        margin-top: 18px;
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mint-meta span {
+        color: var(--ink);
+      }
+      .mint-actions {
+        margin-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .mint-actions button[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      button,
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.4);
+        color: var(--ink);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      textarea {
+        margin-top: 16px;
+        width: 100%;
+        min-height: 110px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.35);
+        color: var(--ink);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 12px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+      }
+      .status {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--accent);
+        letter-spacing: 0.02em;
+        text-transform: none;
+      }
+      .mint-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        z-index: 10;
+      }
+      .mint-modal.is-open {
+        display: flex;
+      }
+      .mint-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(3, 6, 12, 0.7);
+        backdrop-filter: blur(6px);
+      }
+      .mint-modal__panel {
+        position: relative;
+        width: min(640px, 92vw);
+        background: rgba(12, 18, 30, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+      .mint-modal__title {
+        margin: 0 0 6px;
+        font-size: 18px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .mint-modal__subtitle {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .mint-modal__grid {
+        display: grid;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mint-modal__grid span {
+        color: var(--ink);
+      }
+      .mint-modal__note {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--accent);
+      }
+      .mint-modal__actions {
+        margin-top: 16px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .mint-modal__actions button {
+        flex: 1 1 160px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Mint Preview</h1>
+      <p>Preview the on-chain SVG rendering for the current sculpture state.</p>
+      <div class="preview-wrap">
+        <div id="preview"></div>
+      </div>
+      <div class="controls">
+        <button id="copy-state" type="button">Copy packed state</button>
+        <a id="download-svg" class="button" href="#">Download SVG</a>
+      </div>
+      <div class="mint-meta">
+        <div>Network: <span id="mint-chain">—</span></div>
+        <div>Contract: <span id="mint-address">—</span></div>
+        <div>Mint price: <span id="mint-price">—</span></div>
+        <div>Minting: <span id="minting-status">—</span></div>
+        <div>Metadata: <span id="metadata-status">—</span></div>
+        <div>Wallet: <span id="wallet-status">Not connected</span></div>
+      </div>
+      <div class="mint-actions">
+        <button id="connect-wallet" type="button">Connect wallet</button>
+        <button id="mint-now" type="button" disabled>Mint now</button>
+        <button id="toggle-network" type="button">Switch network</button>
+      </div>
+      <textarea id="packed-state" readonly></textarea>
+      <div id="status" class="status" role="status"></div>
+      <div id="mint-status" class="status" role="status"></div>
+    </main>
+    <div id="mint-modal" class="mint-modal" aria-hidden="true">
+      <div class="mint-modal__backdrop" data-mint-close></div>
+      <div class="mint-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mint-modal-title">
+        <h2 id="mint-modal-title" class="mint-modal__title">Confirm Mint</h2>
+        <p class="mint-modal__subtitle">
+          Review the details below. You will sign a mint summary, then submit the mint transaction.
+        </p>
+        <div class="mint-modal__grid">
+          <div>Network: <span id="summary-network">—</span></div>
+          <div>Contract: <span id="summary-contract">—</span></div>
+          <div>Mint price: <span id="summary-price">—</span></div>
+          <div>Packed hash: <span id="summary-hash">—</span></div>
+        </div>
+        <div class="mint-modal__note" id="summary-note">Waiting for signature.</div>
+        <div class="mint-modal__actions">
+          <button id="mint-cancel" type="button">Cancel</button>
+          <button id="mint-confirm" type="button">Sign &amp; Mint</button>
+        </div>
+        <div id="mint-modal-status" class="status" role="status"></div>
+      </div>
+    </div>
+
+    <script>
+      window.process = window.process || { env: { NODE_ENV: "production" } };
+      window.global = window.global || window;
+    </script>
+    <script src="js/mint-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js"></script>
+    <script type="module" src="js/mint-preview.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+apps/glassbox-sha256/
+contracts/.env
+.env
+out/
+cache/
+lib/
+broadcast/
+node_modules/
+lcov.info

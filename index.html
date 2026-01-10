@@ -1,0 +1,1515 @@
+<!doctype html>
+<html lang="en" data-theme="paper">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Paper Stack - Scroll + Tap</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --ink: #eaf0ff;
+        --panel: rgba(255, 255, 255, 0.08);
+        --panel-border: rgba(255, 255, 255, 0.16);
+        --ink-2: #141820;
+        --ink-3: #1c2230;
+        --paper: #f7f4ee;
+        --muted: #b7b2a6;
+        --accent: #ffb84c;
+        --accent-2: #2dd4bf;
+        --accent-3: #8b5cf6;
+        --accent-4: #66a670;
+        --ink-stroke: rgba(45, 212, 191, 0.85);
+        --ink-stroke-muted: rgba(210, 210, 210, 0.35);
+        --glow: 0 24px 60px rgba(0, 0, 0, 0.4);
+        --radius: 20px;
+        --mono: "IBM Plex Mono", "SFMono-Regular", ui-monospace, "DejaVu Sans Mono", monospace;
+        --sans: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        min-height: 100%;
+        width: 100%;
+        overflow-x: clip;
+      }
+      html {
+        scroll-snap-type: y mandatory;
+        scroll-padding-top: 0;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 700px at 20% 20%, #13223c, var(--bg));
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        overflow-x: hidden;
+        overflow-y: auto;
+        min-height: 100vh;
+        scroll-snap-type: y mandatory;
+        touch-action: pan-y;
+      }
+
+      .pixi-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+      .pixi-bg canvas,
+      .pixi-fx canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .pixi-fx {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+      }
+
+      /* WebGL background canvas */
+      #paper-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .cube-link {
+        position: fixed;
+        width: 44px;
+        height: 44px;
+        z-index: 5;
+        text-decoration: none;
+        pointer-events: auto;
+        padding: 0;
+        appearance: none;
+        cursor: pointer;
+        --cube-open: 0;
+        transform: translate(-50%, -50%);
+        border-radius: 6px;
+        border: 1px solid rgba(0, 0, 0, 0.55);
+        background-color: var(--cube-front);
+        background-image:
+          linear-gradient(90deg, rgba(0, 0, 0, 0.5) 1px, transparent 1px),
+          linear-gradient(rgba(0, 0, 0, 0.5) 1px, transparent 1px);
+        background-size: 33.333% 100%, 100% 33.333%;
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.18);
+        filter: url(#wavy-filter);
+        transition: transform 0.2s ease, filter 0.2s ease;
+      }
+
+      .cube-link::before,
+      .cube-link::after {
+        content: "";
+        position: absolute;
+        background-image:
+          linear-gradient(90deg, rgba(0, 0, 0, 0.45) 1px, transparent 1px),
+          linear-gradient(rgba(0, 0, 0, 0.45) 1px, transparent 1px);
+        background-size: 33.333% 100%, 100% 33.333%;
+        opacity: var(--cube-open);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .cube-link::before {
+        width: 44px;
+        height: 12px;
+        left: 6px;
+        top: -12px;
+        transform: skewX(-45deg) scaleY(var(--cube-open));
+        transform-origin: left bottom;
+        background-color: var(--cube-top);
+        border: 1px solid rgba(0, 0, 0, 0.45);
+        border-bottom: none;
+        border-radius: 6px 6px 0 0;
+      }
+
+      .cube-link::after {
+        width: 12px;
+        height: 44px;
+        top: 6px;
+        right: -12px;
+        transform: skewY(-45deg) scaleX(var(--cube-open));
+        transform-origin: left top;
+        background-color: var(--cube-side);
+        border: 1px solid rgba(0, 0, 0, 0.45);
+        border-left: none;
+        border-radius: 0 6px 6px 0;
+      }
+
+      .cube-link.is-open {
+        --cube-open: 1;
+      }
+
+      .cube-link.one {
+        --cube-front: #262b64;
+        --cube-top: #74148a;
+        --cube-side: #4d98b9;
+      }
+
+      .cube-link.two {
+        --cube-front: #45c3c3;
+        --cube-top: #42c2c3;
+        --cube-side: #5deea4;
+      }
+
+      .cube-link.three {
+        --cube-front: #9faba7;
+        --cube-top: #aedb92;
+        --cube-side: #cf6859;
+      }
+
+      .cube-link.glitch {
+        animation: cube-jitter 0.5s steps(4, end);
+        filter: saturate(1.2);
+      }
+
+      @keyframes cube-jitter {
+        0% {
+          transform: translate(-50%, -50%) rotate(0deg);
+        }
+        30% {
+          transform: translate(calc(-50% + 3px), calc(-50% - 2px)) rotate(-2deg);
+        }
+        60% {
+          transform: translate(calc(-50% - 4px), calc(-50% + 3px)) rotate(3deg);
+        }
+        100% {
+          transform: translate(-50%, -50%) rotate(0deg);
+        }
+      }
+
+      /* Scroll chapters */
+      main {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+      }
+      section.chapter {
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 8vh 7vw;
+        scroll-snap-align: center;
+        scroll-snap-stop: always;
+      }
+
+      .panel {
+        width: min(760px, 92vw);
+        margin: 0 auto;
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        filter: url(#wavy-filter);
+        border-radius: 18px;
+        padding: clamp(18px, 3vw, 28px);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+        transform: translateY(10px);
+        opacity: 0;
+        transition: opacity 700ms ease, transform 700ms ease;
+      }
+      section.is-active .panel {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 18px;
+        align-items: center;
+      }
+      .hero-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .tagline {
+        font-size: 11px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        opacity: 0.8;
+      }
+
+      .nav-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px;
+      }
+      .nav-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid var(--panel-border);
+        background: rgba(0, 0, 0, 0.18);
+        color: inherit;
+        text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      }
+      .nav-card.slop {
+        cursor: pointer;
+      }
+      .nav-card.slop.is-pulsing {
+        animation: slop-pulse 0.35s ease;
+      }
+      @keyframes slop-pulse {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+        }
+        45% {
+          transform: scale(0.985);
+          box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
+          border-color: rgba(255, 255, 255, 0.28);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+        }
+      }
+      .nav-card h2 {
+        margin: 0;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .nav-card .pill {
+        align-self: flex-start;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        padding: 6px 10px;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: rgba(0, 0, 0, 0.2);
+      }
+      .nav-card .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .nav-card .pill-link {
+        align-self: flex-start;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        padding: 6px 10px;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: rgba(0, 0, 0, 0.2);
+        color: inherit;
+        text-decoration: none;
+        display: inline-flex;
+      }
+
+      .hero-image {
+        display: block;
+        margin: 0;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--panel-border);
+      }
+      .hero-image img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--ink);
+        font-weight: 600;
+        font-size: 14px;
+        text-decoration: none;
+      }
+      .mint-panel {
+        width: auto;
+        padding: 0;
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .mint-cta {
+        padding: 12px 22px;
+        font-size: 13px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+      .cta.alt {
+        background: transparent;
+      }
+      .cta-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .meta-pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px dashed var(--panel-border);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .brew-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .brew-chip {
+        border: 1px solid var(--panel-border);
+        background: rgba(0, 0, 0, 0.18);
+        padding: 12px;
+        border-radius: 14px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .brew-chip strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+      }
+
+      .terminal-footer {
+        margin-top: 18px;
+        font-size: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .social-links {
+        display: flex;
+        gap: 12px;
+      }
+      .social-link {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .social-link svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .kicker {
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-size: 12px;
+        opacity: 0.8;
+      }
+      h1,
+      h2 {
+        margin: 10px 0 8px;
+        line-height: 1.05;
+      }
+      p {
+        margin: 0;
+        opacity: 0.9;
+        line-height: 1.5;
+      }
+
+      .hud {
+        position: fixed;
+        top: 14px;
+        right: 14px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        z-index: 4;
+        font-size: 12px;
+        opacity: 0.9;
+        user-select: none;
+      }
+      .pill {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.25);
+        padding: 8px 10px;
+        border-radius: 999px;
+      }
+      .hint {
+        position: fixed;
+        left: 14px;
+        bottom: 14px;
+        z-index: 4;
+        font-size: 12px;
+        opacity: 0.85;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .panel {
+          transition: none;
+          transform: none;
+          opacity: 1;
+        }
+      }
+      @media (max-width: 720px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        section.chapter {
+          padding: 6vh 5vw;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="pixi-bg" class="pixi-bg" aria-hidden="true"></div>
+    <div id="pixi-fx" class="pixi-fx" aria-hidden="true"></div>
+    <canvas id="paper-canvas" aria-hidden="true"></canvas>
+    <a class="cube-link one" href="coffee.html" aria-label="Raise red sheet" data-layer="0"></a>
+    <a class="cube-link two" href="coffee.html" aria-label="Raise yellow sheet" data-layer="1"></a>
+    <a class="cube-link three" href="coffee.html" aria-label="Raise green sheet" data-layer="2"></a>
+
+    <div class="hud">
+      <div class="pill" id="chapter-pill">Chapter 1 / 5</div>
+      <div class="pill" id="motion-pill">motion: on</div>
+    </div>
+    <div class="hint">Tap / click anywhere to remix the pattern.</div>
+
+    <main>
+      <section class="chapter is-active" data-chapter="0">
+        <div class="panel">
+          <div class="hero">
+            <div class="hero-card">
+              <div class="tagline">studybook.eth</div>
+              <h1>Learning labs, problem spaces, and a realm that's applied</h1>
+              <p>Jump straight into apps, exploratory slop, and everything else we're experimenting with.</p>
+              <div class="tagline">study applied</div>
+            </div>
+            <a class="hero-image" href="https://receipts.vv.xyz/account/0x3f9A42edfDE891198a5fE82Cd8B5378A7045dF8e">
+              <img src="https://api.receipts.vv.xyz/signatures/1973/png" alt="Studybook banner" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" data-chapter="1">
+        <div class="panel">
+          <div class="nav-grid">
+            <a class="nav-card apps" href="https://ipfs.io/ipfs/bafybeidnlkz3zd5cybe4d6axr2ogc4svvcyysv6utw6qgsst4wvkl5z5p4">
+              <h2>Apps</h2>
+              <div class="pill">open glassbox sha-256→</div>
+            </a>
+            <div class="nav-card slop">
+              <h2>Slop</h2>
+              <div class="pill-row">
+                <a class="pill-link" href="https://anchor-zero.eth.limo">browse slop →</a>
+                <a class="pill-link" href="coffee.html">brew slop →</a>
+              </div>
+            </div>
+            <a class="nav-card other" href="https://cubixles.xyz">
+              <h2>cubixles_</h2>
+              <div class="pill">cubixles_ →</div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" data-chapter="2">
+        <div class="panel">
+          <div class="kicker">chapter 3 / 5</div>
+          <h2>Signal map</h2>
+          <p>Field notes, lab cadence, and portal map updates.</p>
+          <div class="brew-grid" aria-label="Studybook metadata">
+            <div class="brew-chip">
+              <strong>field notes</strong>
+              status: compiling :: 07 modules
+            </div>
+            <div class="brew-chip">
+              <strong>lab cadence</strong>
+              runs: daily :: signal lock 2.1
+            </div>
+            <div class="brew-chip">
+              <strong>portal map</strong>
+              nodes: 14 :: orbit online
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" data-chapter="3">
+        <div class="panel">
+          <div class="kicker">chapter 4 / 5</div>
+          <h2>Tap the screen</h2>
+          <p>Each tap randomizes the sculpture so the symbol never shows the same face twice.</p>
+          <footer class="terminal-footer">
+            <span>No trackers. No cookies. Just learning.</span>
+            <div class="social-links" aria-label="Social links">
+              <a
+                class="social-link"
+                href="https://farcaster.xyz/daniel-r-hawes"
+                target="_blank"
+                rel="noopener"
+                aria-label="Farcaster @daniel-r-hawes"
+              >
+                <svg role="img" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M18.24.24H5.76C2.5789.24 0 2.8188 0 6v12c0 3.1811 2.5789 5.76 5.76 5.76h12.48c3.1812 0 5.76-2.5789 5.76-5.76V6C24 2.8188 21.4212.24 18.24.24m.8155 17.1662v.504c.2868-.0256.5458.1905.5439.479v.5688h-5.1437v-.5688c-.0019-.2885.2576-.5047.5443-.479v-.504c0-.22.1525-.402.358-.458l-.0095-4.3645c-.1589-1.7366-1.6402-3.0979-3.4435-3.0979-1.8038 0-3.2846 1.3613-3.4435 3.0979l-.0096 4.3578c.2276.0424.5318.2083.5395.4648v.504c.2863-.0256.5457.1905.5438.479v.5688H4.3915v-.5688c-.0019-.2885.2575-.5047.5438-.479v-.504c0-.2529.2011-.4548.4536-.4724v-7.895h-.4905L4.2898 7.008l2.6405-.0005V5.0419h9.9495v1.9656h2.8219l-.6091 2.0314h-.4901v7.8949c.2519.0177.453.2195.453.4724" />
+                </svg>
+                <span class="sr-only">Farcaster @daniel-r-hawes</span>
+              </a>
+              <a
+                class="social-link"
+                href="https://x.com/3141007R"
+                target="_blank"
+                rel="noopener"
+                aria-label="X @3141007R"
+              >
+                <svg role="img" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z" />
+                </svg>
+                <span class="sr-only">X @3141007R</span>
+              </a>
+              <a
+                class="social-link"
+                href="https://github.com/danyel-ii/"
+                target="_blank"
+                rel="noopener"
+                aria-label="GitHub @danyel-ii"
+              >
+                <svg role="img" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.084-.729.084-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.468-2.381 1.236-3.221-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.911 1.23 3.221 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+                </svg>
+                <span class="sr-only">GitHub @danyel-ii</span>
+              </a>
+            </div>
+          </footer>
+        </div>
+      </section>
+
+      <section class="chapter" data-chapter="4">
+        <div class="panel mint-panel">
+          <button class="cta mint-cta" type="button">mint sculpture</button>
+        </div>
+      </section>
+    </main>
+
+    <svg class="filter-defs" width="0" height="0" aria-hidden="true">
+      <filter id="wavy-filter">
+        <feTurbulence type="fractalNoise" baseFrequency="0.008 0.02" numOctaves="1" seed="2">
+          <animate attributeName="baseFrequency" dur="6s" values="0.008 0.02;0.01 0.025;0.008 0.02" repeatCount="indefinite" />
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" scale="10" />
+      </filter>
+    </svg>
+
+    <script type="module">
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+      // ---------- helpers ----------
+      const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const lerp2 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+      const smooth = (t) => t * t * (3 - 2 * t); // smoothstep-ish ease
+      const createPrng = (seed) => {
+        let state = seed >>> 0;
+        return () => {
+          state += 0x6d2b79f5;
+          let t = state;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      };
+      const randomHex = () => `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0")}`;
+
+      function prefersReducedMotion() {
+        return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      }
+
+      const reduce = prefersReducedMotion();
+
+      function makePaperTexture(size = 256) {
+        const c = document.createElement("canvas");
+        c.width = c.height = size;
+        const ctx = c.getContext("2d");
+
+        // base warm-ish paper
+        ctx.fillStyle = "#f4f3ef";
+        ctx.fillRect(0, 0, size, size);
+
+        // noise grain
+        const img = ctx.getImageData(0, 0, size, size);
+        for (let i = 0; i < img.data.length; i += 4) {
+          const n = (Math.random() * 2 - 1) * 14; // grain amount
+          img.data[i + 0] = clamp(img.data[i + 0] + n, 0, 255);
+          img.data[i + 1] = clamp(img.data[i + 1] + n, 0, 255);
+          img.data[i + 2] = clamp(img.data[i + 2] + n, 0, 255);
+          img.data[i + 3] = 255;
+        }
+        ctx.putImageData(img, 0, 0);
+
+        // subtle fibers
+        ctx.globalAlpha = 0.06;
+        ctx.strokeStyle = "#3a2f2a";
+        for (let i = 0; i < 180; i++) {
+          ctx.beginPath();
+          const x = Math.random() * size;
+          const y = Math.random() * size;
+          const len = 20 + Math.random() * 60;
+          const ang = Math.random() * Math.PI;
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2, 2);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      // ---------- shaders ----------
+      const vertexShader = `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `;
+
+      const fragmentShader = `
+        precision highp float;
+
+        uniform float uTime;
+        uniform float uSeed;
+        uniform vec2  uPan;
+        uniform float uScale;
+
+        uniform vec2  uGrid;
+        uniform float uSquareMix;
+        uniform float uHoleProb;
+        uniform float uRadius;
+        uniform float uBevel;
+
+        uniform vec3  uColor;
+        uniform sampler2D uPaperTex;
+        uniform float uTexScale;
+
+        varying vec2 vUv;
+
+        float hash12(vec2 p){
+          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+          p3 += dot(p3, p3.yzx + 33.33);
+          return fract((p3.x + p3.y) * p3.z);
+        }
+
+        float sdCircle(vec2 p, float r){ return length(p) - r; }
+        float sdBox(vec2 p, vec2 b){
+          vec2 d = abs(p) - b;
+          return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+        }
+
+        void main(){
+          // pattern space
+          vec2 uv = (vUv - 0.5) * uScale + 0.5 + uPan;
+
+          // Keep it bounded; avoid hard tiling look but prevent UV runaway:
+          uv = clamp(uv, 0.0, 1.0);
+
+          // grid
+          vec2 g = max(uGrid, vec2(1.0));
+          vec2 cell = floor(uv * g);
+          vec2 f = fract(uv * g) - 0.5;
+
+          float rnd = hash12(cell + uSeed);
+          float hole = step(rnd, uHoleProb);
+
+          vec2 jitter = vec2(
+            hash12(cell + uSeed * 1.7),
+            hash12(cell + uSeed * 2.9)
+          ) - 0.5;
+          jitter *= 0.35;
+
+          vec2 p = f - jitter;
+
+          float r = mix(uRadius * 0.60, uRadius * 1.10, hash12(cell + uSeed * 4.2));
+          float circleSdf = sdCircle(p, r);
+          float boxSdf = sdBox(p, vec2(r));
+
+          float perCellPick = step(0.5, hash12(cell + uSeed * 5.3));
+          float mixAmt = mix(uSquareMix, perCellPick, 0.6);
+          float shapeSdf = mix(circleSdf, boxSdf, mixAmt);
+
+          // if the cell has no hole, push sdf positive (no cutout)
+          float sdf = mix(1.0, shapeSdf, hole);
+
+          // antialias edge
+          float aa = fwidth(sdf) * 1.2;
+          float alpha = smoothstep(0.0, aa, sdf); // outside hole -> 1
+
+          if(alpha < 0.02) discard;
+
+          // bevel intensity near edge
+          float edge = 1.0 - smoothstep(0.0, uBevel * 0.25 + aa, abs(sdf));
+
+          // gradient in screen space for pseudo-normal
+          vec2 grad = normalize(vec2(dFdx(sdf), dFdy(sdf)) + 1e-6);
+          vec2 lightDir = normalize(vec2(0.85, -0.55));
+          float ndl = dot(grad, lightDir);
+
+          float highlight = clamp(ndl, 0.0, 1.0) * edge;
+          float shadow    = clamp(-ndl, 0.0, 1.0) * edge;
+
+          // paper texture (subtle)
+          vec3 tex = texture2D(uPaperTex, vUv * uTexScale).rgb;
+          vec3 base = uColor;
+          base *= mix(vec3(1.0), tex, 0.22);
+
+          base += highlight * 0.18;
+          base -= shadow * 0.22;
+
+          // subtle vignette for depth
+          float v = smoothstep(0.95, 0.25, length(vUv - 0.5));
+          base *= mix(1.0, 0.96, v);
+
+          gl_FragColor = vec4(base, alpha);
+        }
+      `;
+
+      // ---------- scene setup ----------
+      const canvas = document.getElementById("paper-canvas");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+      renderer.setClearColor(0x000000, 0);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 10);
+      camera.position.set(0, 0, 2);
+
+      const group = new THREE.Group();
+      scene.add(group);
+      const getStackScale = () => (window.innerWidth <= 720 ? 1.15 : 1.3);
+      let stackScale = getStackScale();
+
+      const paperTex = makePaperTexture(256);
+
+      const LAYERS = 3;
+
+      const layerColors = ["#262b64", "#45c3c3", "#9faba7"].slice(0, LAYERS);
+
+      const planeGeo = new THREE.PlaneGeometry(1, 1, 1, 1);
+
+      const BASE_SEED = Math.floor(10 + Math.random() * 900);
+      const baseLayer = (i) => ({
+        grid: 6 + i * 0.8,
+        squareMix: 0.45,
+        holeProb: 0.78,
+        radius: 0.38 + i * 0.01,
+        pan: [0.0, 0.0],
+      });
+
+      function makeLayer(i) {
+        const base = baseLayer(i);
+        const seed = BASE_SEED + i * 19.13;
+        const driftAngle = Math.random() * Math.PI * 2;
+        const drift = {
+          dir: [Math.cos(driftAngle), Math.sin(driftAngle)],
+          amp: 0.004 + Math.random() * 0.006,
+          freq: 0.18 + Math.random() * 0.2,
+          phase: Math.random() * Math.PI * 2,
+        };
+        const mat = new THREE.ShaderMaterial({
+          transparent: true,
+          vertexShader,
+          fragmentShader,
+          uniforms: {
+            uTime: { value: 0 },
+            uSeed: { value: seed },
+            uPan: { value: new THREE.Vector2(base.pan[0], base.pan[1]) },
+            uScale: { value: 1.0 },
+
+            uGrid: { value: new THREE.Vector2(base.grid, base.grid) },
+            uSquareMix: { value: base.squareMix },
+            uHoleProb: { value: base.holeProb },
+            uRadius: { value: base.radius },
+            uBevel: { value: 1.0 },
+
+            uColor: { value: new THREE.Color(layerColors[i]) },
+            uPaperTex: { value: paperTex },
+            uTexScale: { value: 2.0 },
+          },
+        });
+
+        const mesh = new THREE.Mesh(planeGeo, mat);
+        mesh.position.z = -i * 0.02; // stack depth
+        mesh.renderOrder = i;
+
+        // show stack edges by scaling layers slightly
+        mesh.scale.set(1, 1, 1);
+        mesh.position.x = 0;
+        mesh.position.y = 0;
+
+        // state containers for smooth param updates
+        mesh.userData.current = {
+          seed,
+          pan: [base.pan[0], base.pan[1]],
+          scale: 1.0,
+          grid: base.grid,
+          squareMix: base.squareMix,
+          holeProb: base.holeProb,
+          radius: base.radius,
+        };
+        mesh.userData.zCurrent = mesh.position.z;
+        mesh.userData.zTarget = mesh.position.z;
+        mesh.userData.zLiftCurrent = 0;
+        mesh.userData.zLiftTarget = 0;
+        mesh.userData.drift = drift;
+        mesh.userData.target = { ...mesh.userData.current };
+
+        return mesh;
+      }
+
+      const layers = Array.from({ length: LAYERS }, (_, i) => makeLayer(i));
+      layers.forEach((m) => group.add(m));
+
+      const stackOrder = Array.from({ length: LAYERS }, (_, i) => i);
+      const zSpacing = 0.05;
+
+      const setCubeColors = (cube, { front, top, side }) => {
+        cube.style.setProperty("--cube-front", front);
+        cube.style.setProperty("--cube-top", top);
+        cube.style.setProperty("--cube-side", side);
+      };
+
+      const setLayerColor = (layerIndex, hex) => {
+        layerColors[layerIndex] = hex;
+        layers[layerIndex].material.uniforms.uColor.value.set(hex);
+        requestRender();
+      };
+
+      const applyStackTargets = () => {
+        stackOrder.forEach((layerIndex, orderIndex) => {
+          const mesh = layers[layerIndex];
+          const targetZ = -orderIndex * zSpacing;
+          mesh.userData.zTarget = targetZ;
+          mesh.renderOrder = LAYERS - orderIndex;
+        });
+      };
+
+      const bumpLayerUp = (layerIndex) => {
+        const position = stackOrder.indexOf(layerIndex);
+        if (position <= 0) {
+          layers[layerIndex].userData.zLiftTarget = 0.025;
+          return;
+        }
+        const above = stackOrder[position - 1];
+        stackOrder[position - 1] = layerIndex;
+        stackOrder[position] = above;
+        layers[layerIndex].userData.zLiftTarget = 0.035;
+        applyStackTargets();
+        requestRender();
+      };
+
+      applyStackTargets();
+
+      function resize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        renderer.setSize(w, h, false);
+        stackScale = getStackScale();
+
+        // Fit ortho camera to aspect
+        const aspect = w / h;
+        const viewH = 2.0;
+        const viewW = viewH * aspect;
+        camera.left = -viewW / 2;
+        camera.right = viewW / 2;
+        camera.top = viewH / 2;
+        camera.bottom = -viewH / 2;
+        camera.updateProjectionMatrix();
+      }
+      window.addEventListener("resize", () => {
+        resize();
+        requestRender();
+      });
+      resize();
+
+      // ---------- scroll storytelling scenes ----------
+      // Each scene defines: group transform + per-layer baseline params
+      const sceneOffsets = [
+        { group: { x: 0.0, y: 0.0, s: 1.0, r: 0.0 }, grid: 0.0, squareMix: 0.0, holeProb: 0.0, radius: 0.0, pan: [0.0, 0.0] },
+        { group: { x: 0.034, y: -0.026, s: 1.0, r: 0.012 }, grid: 0.38, squareMix: 0.04, holeProb: -0.03, radius: 0.018, pan: [0.01, -0.009] },
+        { group: { x: -0.03, y: 0.03, s: 1.0, r: -0.01 }, grid: -0.32, squareMix: -0.034, holeProb: 0.026, radius: -0.016, pan: [-0.009, 0.01] },
+        { group: { x: 0.023, y: -0.031, s: 1.0, r: 0.008 }, grid: 0.25, squareMix: 0.03, holeProb: 0.022, radius: -0.013, pan: [0.008, 0.01] },
+        { group: { x: -0.012, y: 0.022, s: 1.0, r: -0.006 }, grid: -0.14, squareMix: 0.02, holeProb: -0.015, radius: 0.01, pan: [0.006, 0.004] },
+      ];
+
+      const sceneLayerOffsets = sceneOffsets.map((offset, sceneIndex) =>
+        Array.from({ length: LAYERS }, (_, i) => {
+          const rng = createPrng((sceneIndex + 1) * 1000 + i * 97);
+          const jitter = (amount) => (rng() * 2 - 1) * amount;
+          return {
+            grid: offset.grid + jitter(0.26),
+            squareMix: offset.squareMix + jitter(0.035),
+            holeProb: offset.holeProb + jitter(0.03),
+            radius: offset.radius + jitter(0.013),
+            pan: [offset.pan[0] + jitter(0.011), offset.pan[1] + jitter(0.011)],
+          };
+        })
+      );
+
+      const scenes = sceneOffsets.map((offset, sceneIndex) => ({
+        group: offset.group,
+        baseSeed: BASE_SEED,
+        layer: (i) => {
+          const base = baseLayer(i);
+          const per = sceneLayerOffsets[sceneIndex][i];
+          return {
+            grid: base.grid + per.grid,
+            squareMix: base.squareMix + per.squareMix,
+            holeProb: base.holeProb + per.holeProb,
+            radius: base.radius + per.radius,
+            pan: [base.pan[0] + per.pan[0], base.pan[1] + per.pan[1]],
+          };
+        },
+      }));
+
+      function getScrollChapter() {
+        const vh = window.innerHeight || 1;
+        const y = window.scrollY || 0;
+        const maxIdx = scenes.length - 1;
+
+        const raw = y / vh; // because sections are ~100vh
+        const i = clamp(Math.floor(raw), 0, maxIdx);
+        const t = clamp(raw - i, 0, 1);
+
+        const i2 = clamp(i + 1, 0, maxIdx);
+        return { i, i2, t: smooth(t) };
+      }
+
+      const PACK_SCALE = 10000;
+      const SEED_SCALE = 1000000;
+      const PACK_LIMITS = {
+        grid: [3, 22],
+        squareMix: [0, 1],
+        holeProb: [0.05, 0.95],
+        radius: [0.18, 0.6],
+        pan: [-0.12, 0.12],
+        scale: [0.9, 1.1],
+      };
+
+      const quantizeFloat = (value, min, max) => {
+        const clamped = clamp(value, min, max);
+        return Math.round(((clamped - min) / (max - min)) * PACK_SCALE);
+      };
+
+      const quantizeGrid = (value) =>
+        quantizeFloat(value, PACK_LIMITS.grid[0], PACK_LIMITS.grid[1]);
+
+      const parseHexColor = (value) => {
+        if (!value) return 0;
+        return parseInt(value.replace("#", ""), 16);
+      };
+
+      const getSculptureState = () => {
+        const { i, t } = getScrollChapter();
+          return {
+            baseSeed: BASE_SEED,
+            sceneIndex: i,
+            scrollPhase: t,
+            layerOrder: [...stackOrder],
+            layerColors: [...layerColors],
+            layers: layers.map((layer) => ({
+              seed: layer.userData.current.seed,
+              grid: layer.userData.current.grid,
+              squareMix: layer.userData.current.squareMix,
+              holeProb: layer.userData.current.holeProb,
+              radius: layer.userData.current.radius,
+              panX: layer.userData.current.pan[0],
+              panY: layer.userData.current.pan[1],
+              scale: layer.material.uniforms.uScale.value,
+            })),
+          };
+        };
+
+      const packSculptureState = (state = getSculptureState()) => {
+        const bytes = [];
+        const push8 = (value) => bytes.push(value & 0xff);
+        const push16 = (value) => {
+          bytes.push((value >> 8) & 0xff, value & 0xff);
+        };
+        const push24 = (value) => {
+          bytes.push((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff);
+        };
+        const push32 = (value) => {
+          bytes.push((value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff);
+        };
+
+        push32(state.baseSeed >>> 0);
+        push8(state.sceneIndex ?? 0);
+        state.layerOrder.forEach((value) => push8(value));
+        state.layerColors.forEach((color) => push24(parseHexColor(color)));
+        state.layers.forEach((layer) => {
+          push32(Math.round(layer.seed * SEED_SCALE));
+        });
+
+        state.layers.forEach((layer) => {
+          push16(quantizeGrid(layer.grid));
+          push16(quantizeFloat(layer.squareMix, ...PACK_LIMITS.squareMix));
+          push16(quantizeFloat(layer.holeProb, ...PACK_LIMITS.holeProb));
+          push16(quantizeFloat(layer.radius, ...PACK_LIMITS.radius));
+          push16(quantizeFloat(layer.panX, ...PACK_LIMITS.pan));
+          push16(quantizeFloat(layer.panY, ...PACK_LIMITS.pan));
+          push16(quantizeFloat(layer.scale ?? 1, ...PACK_LIMITS.scale));
+        });
+
+        const hex = `0x${bytes.map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+        return {
+          bytes: new Uint8Array(bytes),
+          hex,
+          schema: {
+            baseSeed: "uint32",
+            sceneIndex: "uint8",
+            layerOrder: "uint8[3]",
+            layerColors: "uint24[3]",
+            layerSeeds: `uint32[3] (scaled ${SEED_SCALE})`,
+            layerParams: "uint16[3][7] (grid, squareMix, holeProb, radius, panX, panY, scale)",
+            scale: PACK_SCALE,
+            limits: PACK_LIMITS,
+          },
+        };
+      };
+
+      window.getSculptureState = getSculptureState;
+      window.packSculptureState = packSculptureState;
+
+      // ---------- tap-to-remix variation ----------
+      // Offsets blend on top of scroll baseline.
+      const tap = {
+        // global offsets
+        seedOffsetCurrent: 0,
+        seedOffsetTarget: 0,
+
+        // per-layer offsets
+        layerOffsetsCurrent: Array.from({ length: LAYERS }, () => ({
+          grid: 0,
+          squareMix: 0,
+          holeProb: 0,
+          radius: 0,
+          pan: [0, 0],
+        })),
+        layerOffsetsTarget: Array.from({ length: LAYERS }, () => ({
+          grid: 0,
+          squareMix: 0,
+          holeProb: 0,
+          radius: 0,
+          pan: [0, 0],
+        })),
+
+        pulseCurrent: 0,
+        pulseTarget: 0,
+      };
+
+      function remix() {
+        // new variation targets
+        tap.seedOffsetTarget = 0.0;
+
+        for (let i = 0; i < LAYERS; i++) {
+          tap.layerOffsetsTarget[i] = {
+            grid: (Math.random() * 2 - 1) * 0.38,
+            squareMix: (Math.random() * 2 - 1) * 0.055,
+            holeProb: (Math.random() * 2 - 1) * 0.045,
+            radius: (Math.random() * 2 - 1) * 0.017,
+            pan: [(Math.random() * 2 - 1) * 0.012, (Math.random() * 2 - 1) * 0.012],
+          };
+        }
+
+        tap.pulseTarget = 0.03;
+        requestRender();
+      }
+
+      // ---------- DOM chapter highlighting ----------
+      const sections = [...document.querySelectorAll("section.chapter")];
+      const chapterPill = document.getElementById("chapter-pill");
+      const motionPill = document.getElementById("motion-pill");
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) e.target.classList.add("is-active");
+            else e.target.classList.remove("is-active");
+          }
+        },
+        { threshold: 0.55 }
+      );
+      sections.forEach((s) => io.observe(s));
+      const slopCard = document.querySelector(".nav-card.slop");
+      if (slopCard) {
+        slopCard.addEventListener("click", (event) => {
+          if (event.target && event.target.closest("a")) {
+            return;
+          }
+          slopCard.classList.remove("is-pulsing");
+          window.requestAnimationFrame(() => {
+            slopCard.classList.add("is-pulsing");
+          });
+        });
+      }
+
+      const scrollToChapter = (index) => {
+        if (!sections.length) {
+          return;
+        }
+        const next = (index + sections.length) % sections.length;
+        const top = sections[next].offsetTop;
+        window.scrollTo({ top, behavior: reduce ? "auto" : "smooth" });
+      };
+
+      const isInteractiveTarget = (target) =>
+        target && target.closest("a, button, input, textarea, select, label, .nav-card.slop");
+
+      const isCoarsePointer =
+        window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      let touchStartY = 0;
+      let touchStartX = 0;
+      let touchTarget = null;
+      let touchActive = false;
+      let pageLock = false;
+      const PAGE_LOCK_MS = 650;
+      const SWIPE_THRESHOLD = 42;
+      const TAP_THRESHOLD = 14;
+
+      const advanceChapter = (delta) => {
+        if (pageLock) {
+          return;
+        }
+        pageLock = true;
+        remix();
+        const { i } = getScrollChapter();
+        scrollToChapter(i + delta);
+        window.setTimeout(() => {
+          pageLock = false;
+        }, PAGE_LOCK_MS);
+      };
+
+      window.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "touch") {
+          return;
+        }
+        if (event.button && event.button !== 0) {
+          return;
+        }
+        if (isInteractiveTarget(event.target)) {
+          return;
+        }
+        advanceChapter(1);
+      });
+
+      window.addEventListener(
+        "touchstart",
+        (event) => {
+          if (!isCoarsePointer || event.touches.length !== 1) {
+            return;
+          }
+          const touch = event.touches[0];
+          touchStartY = touch.clientY;
+          touchStartX = touch.clientX;
+          touchTarget = event.target;
+          touchActive = true;
+        },
+        { passive: true }
+      );
+
+      window.addEventListener(
+        "touchmove",
+        (event) => {
+          if (!isCoarsePointer || !touchActive) {
+            return;
+          }
+          if (pageLock) {
+            event.preventDefault();
+            return;
+          }
+          const touch = event.touches[0];
+          const dy = touch.clientY - touchStartY;
+          const dx = touch.clientX - touchStartX;
+          if (Math.abs(dy) > Math.abs(dx) * 1.1 && Math.abs(dy) > TAP_THRESHOLD) {
+            event.preventDefault();
+          }
+        },
+        { passive: false }
+      );
+
+      window.addEventListener(
+        "touchend",
+        (event) => {
+          if (!isCoarsePointer || !touchActive) {
+            return;
+          }
+          touchActive = false;
+          if (pageLock) {
+            return;
+          }
+          const touch = event.changedTouches && event.changedTouches[0];
+          if (!touch) {
+            return;
+          }
+          const dy = touch.clientY - touchStartY;
+          const dx = touch.clientX - touchStartX;
+          const absY = Math.abs(dy);
+          const absX = Math.abs(dx);
+          if (absY < SWIPE_THRESHOLD && absX < SWIPE_THRESHOLD) {
+            if (isInteractiveTarget(touchTarget)) {
+              return;
+            }
+            advanceChapter(1);
+            return;
+          }
+          if (absY > absX * 1.1) {
+            advanceChapter(dy < 0 ? 1 : -1);
+          }
+        },
+        { passive: true }
+      );
+
+      window.addEventListener("touchcancel", () => {
+        touchActive = false;
+      });
+
+      document.querySelectorAll(".cube-link").forEach((cube) => {
+        cube.addEventListener("click", (event) => {
+          event.preventDefault();
+          const layerIndex = Number(cube.dataset.layer);
+          if (Number.isNaN(layerIndex)) {
+            return;
+          }
+          if (stackOrder[0] === layerIndex) {
+            const front = randomHex();
+            const top = randomHex();
+            const side = randomHex();
+            setCubeColors(cube, { front, top, side });
+            setLayerColor(layerIndex, front);
+            layers[layerIndex].userData.zLiftTarget = 0.06;
+            requestRender();
+            return;
+          }
+          bumpLayerUp(layerIndex);
+        });
+      });
+
+      const mintButton = document.querySelector(".mint-cta");
+      if (mintButton) {
+        mintButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          const packed = packSculptureState();
+          localStorage.setItem("sculpturePackedState", packed.hex);
+          const url = `mint-preview.html?state=${encodeURIComponent(packed.hex)}`;
+          window.open(url, "_blank", "noopener");
+        });
+      }
+
+      // ---------- render loop / reduced motion ----------
+      motionPill.textContent = `motion: ${reduce ? "reduced" : "on"}`;
+
+      let last = performance.now();
+      let needsRender = true;
+      let lastChapterIndex = null;
+      let pageRotateCurrent = 0;
+      let pageRotateTarget = 0;
+
+      function requestRender() {
+        needsRender = true;
+      }
+
+      window.addEventListener("scroll", () => requestRender(), { passive: true });
+
+      function step(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+
+        // If reduced motion: only render when something changes
+        if (reduce && !needsRender) {
+          requestAnimationFrame(step);
+          return;
+        }
+
+        needsRender = false;
+
+        // Scroll baseline state
+        const { i, i2, t } = getScrollChapter();
+        const tBlend = t * 0.7;
+        const tPan = t * 0.85;
+        const tGroup = t * 0.8;
+        chapterPill.textContent = `Chapter ${i + 1} / ${scenes.length}`;
+
+        const A = scenes[i];
+        const B = scenes[i2];
+        if (lastChapterIndex === null) {
+          lastChapterIndex = i;
+        } else if (lastChapterIndex !== i) {
+          const direction = i > lastChapterIndex ? 1 : -1;
+          pageRotateTarget = direction * (0.02 + Math.random() * 0.02);
+          lastChapterIndex = i;
+        }
+
+        // Smoothly damp tap offsets
+        const damp = 1.0 - Math.exp(-2.4 * dt);
+        const pageDamp = 1.0 - Math.exp(-3.2 * dt);
+        const pageReturn = 1.0 - Math.exp(-2.4 * dt);
+
+        tap.seedOffsetCurrent = lerp(tap.seedOffsetCurrent, tap.seedOffsetTarget, damp);
+        tap.pulseCurrent = lerp(tap.pulseCurrent, tap.pulseTarget, damp);
+        tap.pulseTarget = lerp(tap.pulseTarget, 0.0, damp); // decay
+        pageRotateCurrent = lerp(pageRotateCurrent, pageRotateTarget, pageDamp);
+        pageRotateTarget = lerp(pageRotateTarget, 0.0, pageReturn);
+
+        for (let li = 0; li < LAYERS; li++) {
+          const c = tap.layerOffsetsCurrent[li];
+          const tgt = tap.layerOffsetsTarget[li];
+          c.grid = lerp(c.grid, tgt.grid, damp);
+          c.squareMix = lerp(c.squareMix, tgt.squareMix, damp);
+          c.holeProb = lerp(c.holeProb, tgt.holeProb, damp);
+          c.radius = lerp(c.radius, tgt.radius, damp);
+          c.pan = lerp2(c.pan, tgt.pan, damp);
+        }
+
+        // Group transform from scroll, plus a tiny tap pulse jiggle
+        const gx = lerp(A.group.x, B.group.x, tGroup);
+        const gy = lerp(A.group.y, B.group.y, tGroup);
+        const gs = lerp(A.group.s, B.group.s, tGroup);
+        const gr = lerp(A.group.r, B.group.r, tGroup);
+
+        const time = reduce ? 0 : now * 0.00012;
+        const jig = tap.pulseCurrent * 0.005;
+        const wobble = reduce ? 0 : 0.006;
+        group.position.x = gx + Math.sin(time * 1.1) * wobble + Math.sin(time * 2.2) * jig;
+        group.position.y = gy + Math.cos(time * 0.95) * wobble + Math.cos(time * 2.0) * jig;
+        group.rotation.z =
+          gr +
+          pageRotateCurrent +
+          Math.sin(time * 0.85) * wobble * 0.25 +
+          Math.sin(time * 1.8) * jig * 0.6;
+        group.scale.setScalar(gs * stackScale);
+
+        // Update layers
+        for (let li = 0; li < LAYERS; li++) {
+          const mesh = layers[li];
+          const mat = mesh.material;
+          const baseA = A.layer(li);
+          const baseB = B.layer(li);
+          // baseline per-layer from scroll
+          const base = {
+            grid: lerp(baseA.grid, baseB.grid, tBlend),
+            squareMix: lerp(baseA.squareMix, baseB.squareMix, tBlend),
+            holeProb: lerp(baseA.holeProb, baseB.holeProb, tBlend),
+            radius: lerp(baseA.radius, baseB.radius, tBlend),
+            pan: lerp2(baseA.pan, baseB.pan, tPan),
+            seed: lerp(A.baseSeed, B.baseSeed, tBlend) + li * 19.13,
+          };
+
+          // add tap variation (clamped)
+          const off = tap.layerOffsetsCurrent[li];
+          const target = mesh.userData.target;
+          const drift = mesh.userData.drift;
+          const driftOffset = reduce ? 0 : Math.sin(time * drift.freq + drift.phase) * drift.amp;
+          const driftPan = [drift.dir[0] * driftOffset, drift.dir[1] * driftOffset];
+
+          target.grid = clamp(base.grid + off.grid, 3, 22);
+          target.squareMix = clamp(base.squareMix + off.squareMix, 0, 1);
+          target.holeProb = clamp(base.holeProb + off.holeProb, 0.05, 0.95);
+          target.radius = clamp(base.radius + off.radius, 0.18, 0.6);
+          target.pan = [
+            base.pan[0] + off.pan[0] + driftPan[0],
+            base.pan[1] + off.pan[1] + driftPan[1],
+          ];
+          target.seed = base.seed;
+
+          // smooth current -> target
+          const cur = mesh.userData.current;
+          const sn = 1.0 - Math.exp(-2.4 * dt);
+
+          cur.grid = lerp(cur.grid, target.grid, sn);
+          cur.squareMix = lerp(cur.squareMix, target.squareMix, sn);
+          cur.holeProb = lerp(cur.holeProb, target.holeProb, sn);
+          cur.radius = lerp(cur.radius, target.radius, sn);
+          cur.seed = lerp(cur.seed, target.seed, sn);
+          cur.pan = lerp2(cur.pan, target.pan, sn);
+
+          const zDamp = 1.0 - Math.exp(-6.0 * dt);
+          const liftDamp = 1.0 - Math.exp(-9.0 * dt);
+          mesh.userData.zLiftCurrent = lerp(mesh.userData.zLiftCurrent, mesh.userData.zLiftTarget, liftDamp);
+          mesh.userData.zLiftTarget = lerp(mesh.userData.zLiftTarget, 0.0, liftDamp);
+          mesh.userData.zCurrent = lerp(mesh.userData.zCurrent, mesh.userData.zTarget + mesh.userData.zLiftCurrent, zDamp);
+          mesh.position.z = mesh.userData.zCurrent;
+
+          // apply uniforms
+          mat.uniforms.uTime.value = time;
+          mat.uniforms.uSeed.value = cur.seed;
+          mat.uniforms.uPan.value.set(cur.pan[0], cur.pan[1]);
+          mat.uniforms.uGrid.value.set(cur.grid, cur.grid);
+          mat.uniforms.uSquareMix.value = cur.squareMix;
+          mat.uniforms.uHoleProb.value = cur.holeProb;
+          mat.uniforms.uRadius.value = cur.radius;
+
+          // optional subtle breathing (disabled in reduced motion)
+          mat.uniforms.uScale.value = reduce ? 1.0 : 1.0 + Math.sin(time * 1.2 + li * 0.4) * 0.002;
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(step);
+      }
+
+      requestAnimationFrame(step);
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.3.1/dist/pixi.min.js" defer></script>
+    <script src="js/pixi-bg.js" defer></script>
+  </body>
+</html>

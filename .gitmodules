@@ -1,0 +1,3 @@
+[submodule "apps/glassbox-sha256"]
+	path = apps/glassbox-sha256
+	url = https://github.com/danyel-ii/glassbox-sha256.git

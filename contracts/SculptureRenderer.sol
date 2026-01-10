@@ -163,6 +163,36 @@ library SculptureRenderer {
     );
   }
 
+  function renderSvgPreview(State memory state) internal pure returns (string memory) {
+    string memory viewStr = toString(VIEW);
+    string memory body = "";
+    for (uint256 orderIndex = LAYER_COUNT; orderIndex > 0; orderIndex--) {
+      uint256 idx = orderIndex - 1;
+      uint256 layerIndex = state.layerOrder[idx];
+      string memory color = toHexColor(state.layerColors[layerIndex]);
+      MaskConfig memory cfg = buildMaskConfig(state, layerIndex);
+      (, string memory shapes) = buildShapes(cfg);
+      body = string(abi.encodePacked(body, renderPreviewLayer(viewStr, color, shapes)));
+    }
+
+    return string(
+      abi.encodePacked(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ",
+        viewStr,
+        " ",
+        viewStr,
+        "'>",
+        "<rect width='",
+        viewStr,
+        "' height='",
+        viewStr,
+        "' fill='#0b1220'/>",
+        body,
+        "</svg>"
+      )
+    );
+  }
+
   function renderLayerGroup(
     uint256 layerIndex,
     string memory viewStr,
@@ -216,6 +246,29 @@ library SculptureRenderer {
         rect2,
         rect3,
         bevel,
+        "</g>"
+      )
+    );
+  }
+
+  function renderPreviewLayer(
+    string memory viewStr,
+    string memory color,
+    string memory shapes
+  ) internal pure returns (string memory) {
+    return string(
+      abi.encodePacked(
+        "<g>",
+        "<rect width='",
+        viewStr,
+        "' height='",
+        viewStr,
+        "' fill='",
+        color,
+        "'/>",
+        "<g fill='#0b1220' opacity='0.92'>",
+        shapes,
+        "</g>",
         "</g>"
       )
     );

@@ -32,10 +32,28 @@ if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
 
 const configPath = path.join("js", "mint-config.js");
 const configSource = fs.readFileSync(configPath, "utf8");
-const updated = configSource.replace(
-  /contractAddress:\s*\"0x[a-fA-F0-9]{40}\"/,
-  `contractAddress: "${address}"`
-);
+const networkMap = {
+  "1": "mainnet",
+  "8453": "base",
+  "11155111": "sepolia",
+};
+const targetKey = process.env.NETWORK_KEY || networkMap[chainId];
+let updated = configSource;
+
+if (targetKey) {
+  const pattern = new RegExp(
+    `(${targetKey}\\s*:\\s*\\{[\\s\\S]*?contractAddress:\\s*\")0x[a-fA-F0-9]{40}(\"[\\s\\S]*?\\})`,
+    "m"
+  );
+  updated = configSource.replace(pattern, `$1${address}$2`);
+}
+
+if (updated === configSource) {
+  updated = configSource.replace(
+    /contractAddress:\s*\"0x[a-fA-F0-9]{40}\"/,
+    `contractAddress: "${address}"`
+  );
+}
 
 if (updated === configSource) {
   console.error("Failed to update contractAddress in mint-config.js.");

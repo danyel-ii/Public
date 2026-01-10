@@ -14,16 +14,32 @@ const priceEl = document.getElementById("mint-price");
 const mintingStatusEl = document.getElementById("minting-status");
 const metadataStatusEl = document.getElementById("metadata-status");
 const walletStatusEl = document.getElementById("wallet-status");
+const toggleNetworkButton = document.getElementById("toggle-network");
+const mintModalEl = document.getElementById("mint-modal");
+const mintModalStatusEl = document.getElementById("mint-modal-status");
+const mintConfirmButton = document.getElementById("mint-confirm");
+const mintCancelButton = document.getElementById("mint-cancel");
+const summaryNetworkEl = document.getElementById("summary-network");
+const summaryContractEl = document.getElementById("summary-contract");
+const summaryPriceEl = document.getElementById("summary-price");
+const summaryHashEl = document.getElementById("summary-hash");
+const summaryRasterEl = document.getElementById("summary-raster");
+const summaryNoteEl = document.getElementById("summary-note");
 
-const config = window.MINT_CONFIG || {};
+const config = window.getMintConfig ? window.getMintConfig() : (window.MINT_CONFIG || {});
+const configKey = (window.MINT_CONFIG_ACTIVE_KEY || "sepolia").toLowerCase();
+const configList = window.MINT_CONFIGS || {};
 const MINT_ABI = [
   "function mint(bytes packed) payable returns (uint256)",
+  "function mintWithImage(bytes packed, string rasterUri) payable returns (uint256)",
   "function mintPriceWei() view returns (uint256)",
   "function mintPaused() view returns (bool)",
   "function metadataFrozen() view returns (bool)",
   "function useIpfsMetadata() view returns (bool)",
   "function ipfsBaseUri() view returns (string)",
 ];
+
+const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 
 const setStatus = (message) => {
   if (statusEl) {
@@ -43,6 +59,22 @@ const setWalletStatus = (message) => {
   }
 };
 
+const setModalStatus = (message) => {
+  if (mintModalStatusEl) {
+    mintModalStatusEl.textContent = message;
+  }
+};
+
+const pickInjectedProvider = () => {
+  const injected = window.ethereum;
+  if (!injected) return null;
+  const providers = injected.providers;
+  if (Array.isArray(providers) && providers.length > 0) {
+    return providers.find((provider) => provider.isMetaMask) || providers[0];
+  }
+  return injected;
+};
+
 const getPacked = () => {
   const params = new URLSearchParams(window.location.search);
   return params.get("state") || localStorage.getItem("sculpturePackedState");
@@ -51,6 +83,17 @@ const getPacked = () => {
 const formatAddress = (value) => {
   if (!value) return "—";
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
+};
+
+const normalizePackedHex = (value) => {
+  if (!value) return "";
+  return value.startsWith("0x") ? value : `0x${value}`;
+};
+
+const formatShort = (value) => {
+  if (!value) return "—";
+  if (value.length <= 14) return value;
+  return `${value.slice(0, 8)}…${value.slice(-6)}`;
 };
 
 const isConfigured = () =>
@@ -64,6 +107,65 @@ const showConfig = () => {
   if (contractEl) {
     contractEl.textContent = isConfigured() ? formatAddress(config.contractAddress) : "Not configured";
   }
+};
+
+const openMintModal = () => {
+  if (!mintModalEl) return;
+  const ethers = window.ethers;
+  const packedHex = normalizePackedHex(packed);
+  const hash = packedHex && ethers ? ethers.keccak256(packedHex) : "—";
+  if (summaryNetworkEl) {
+    summaryNetworkEl.textContent = config.chainName || `Chain ${config.chainId || "—"}`;
+  }
+  if (summaryContractEl) {
+    summaryContractEl.textContent = isConfigured() ? formatAddress(config.contractAddress) : "Not configured";
+  }
+  if (summaryPriceEl) {
+    if (mintPriceWei && ethers) {
+      summaryPriceEl.textContent = `${ethers.formatEther(mintPriceWei)} ${config.nativeCurrency?.symbol || "ETH"}`;
+    } else {
+      summaryPriceEl.textContent = "—";
+    }
+  }
+  if (summaryHashEl) {
+    summaryHashEl.textContent = hash ? formatAddress(hash) : "—";
+  }
+  if (summaryRasterEl) {
+    summaryRasterEl.textContent = rasterUri ? formatShort(rasterUri) : "Pending";
+  }
+  if (summaryNoteEl) {
+    summaryNoteEl.textContent = "Render & pin a PNG before signing the Mint Summary.";
+  }
+  setModalStatus("");
+  mintModalEl.classList.add("is-open");
+  mintModalEl.setAttribute("aria-hidden", "false");
+};
+
+const closeMintModal = () => {
+  if (!mintModalEl) return;
+  mintModalEl.classList.remove("is-open");
+  mintModalEl.setAttribute("aria-hidden", "true");
+  setModalStatus("");
+};
+
+const pickToggleTarget = () => {
+  const keys = Object.keys(configList);
+  if (keys.length < 2) return null;
+  if (configKey === "sepolia" && configList.base) return "base";
+  if (configKey === "base" && configList.sepolia) return "sepolia";
+  return keys.find((key) => key !== configKey) || null;
+};
+
+const updateToggleLabel = () => {
+  if (!toggleNetworkButton) return;
+  const target = pickToggleTarget();
+  if (!target) {
+    toggleNetworkButton.disabled = true;
+    toggleNetworkButton.textContent = "Network locked";
+    return;
+  }
+  const targetName = configList[target]?.chainName || target;
+  toggleNetworkButton.textContent = `Switch to ${targetName}`;
 };
 
 const formatStatusError = (err, fallback) => {
@@ -85,6 +187,100 @@ const formatStatusError = (err, fallback) => {
     return "Metadata has been permanently frozen.";
   }
   return message;
+};
+
+const getPinataJwt = () => {
+  const injected = window.PINATA_JWT;
+  if (typeof injected === "string" && injected.trim()) {
+    return injected.trim();
+  }
+  const stored = window.localStorage.getItem("pinataJwt");
+  return stored ? stored.trim() : "";
+};
+
+const ensurePinataJwt = () => {
+  const existing = getPinataJwt();
+  if (existing) return existing;
+  const entered = window.prompt("Enter Pinata JWT to pin the PNG (stored locally).");
+  if (entered && entered.trim()) {
+    window.localStorage.setItem("pinataJwt", entered.trim());
+    return entered.trim();
+  }
+  return "";
+};
+
+const renderSvgToPngBlob = (svg, size = 1200) =>
+  new Promise((resolve, reject) => {
+    try {
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          reject(new Error("Canvas not available."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (png) => {
+            if (!png) {
+              reject(new Error("PNG render failed."));
+              return;
+            }
+            resolve(png);
+          },
+          "image/png",
+          0.92
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("SVG render failed."));
+      };
+      img.src = url;
+    } catch (err) {
+      reject(err);
+    }
+  });
+
+const pinPngToPinata = async (pngBlob, name) => {
+  const jwt = ensurePinataJwt();
+  if (!jwt) {
+    throw new Error("Pinata JWT is required to pin the PNG.");
+  }
+  const form = new FormData();
+  form.append("file", pngBlob, name);
+  form.append(
+    "pinataMetadata",
+    JSON.stringify({
+      name,
+      keyvalues: { collection: "sculpture", type: "png" },
+    })
+  );
+  const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: form,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data?.error || data?.message || "Pinata upload failed.";
+    throw new Error(message);
+  }
+  const cid = data.IpfsHash;
+  return {
+    ipfsUri: `ipfs://${cid}`,
+    gatewayUrl: `${PINATA_GATEWAY}${cid}`,
+  };
 };
 
 const loadPreview = (packed) => {
@@ -144,6 +340,9 @@ let mintPaused = null;
 let metadataFrozen = null;
 let useIpfsMetadata = null;
 let ipfsBaseUri = null;
+let mintSummarySignature = null;
+let rasterUri = "";
+let rasterGatewayUrl = "";
 
 const ensureChain = async (provider) => {
   if (!config.chainId) return;
@@ -174,7 +373,8 @@ const ensureChain = async (provider) => {
 };
 
 const getWalletProvider = async () => {
-  if (window.ethereum) return window.ethereum;
+  const injected = pickInjectedProvider();
+  if (injected) return injected;
   if (config.walletConnectProjectId && window.EthereumProvider) {
     const wcProvider = await window.EthereumProvider.init({
       projectId: config.walletConnectProjectId,
@@ -244,7 +444,45 @@ const connectWallet = async () => {
   }
 };
 
-const mintNow = async () => {
+const signMintSummary = async () => {
+  const ethers = window.ethers;
+  if (!signer || !ethers) {
+    throw new Error("Signer not ready.");
+  }
+  const packedHex = normalizePackedHex(packed);
+  const domain = {
+    name: "Sculpture Mint",
+    version: "1",
+    chainId: Number(config.chainId),
+    verifyingContract: config.contractAddress,
+  };
+  const types = {
+    MintSummary: [
+      { name: "packedHash", type: "bytes32" },
+      { name: "mintPriceWei", type: "uint256" },
+      { name: "rasterUri", type: "string" },
+      { name: "contract", type: "address" },
+      { name: "chainId", type: "uint256" },
+      { name: "timestamp", type: "uint256" },
+    ],
+  };
+  const message = {
+    packedHash: ethers.keccak256(packedHex),
+    mintPriceWei: mintPriceWei ? mintPriceWei.toString() : "0",
+    rasterUri: rasterUri || "",
+    contract: config.contractAddress,
+    chainId: Number(config.chainId),
+    timestamp: Math.floor(Date.now() / 1000),
+  };
+  setModalStatus("Awaiting Mint Summary signature...");
+  mintSummarySignature = await signer.signTypedData(domain, types, message);
+  if (summaryNoteEl) {
+    summaryNoteEl.textContent = "Mint Summary signed. Submitting mint transaction...";
+  }
+  return mintSummarySignature;
+};
+
+const submitMint = async () => {
   if (!contract || !signer || !mintPriceWei || !packed) {
     setMintStatus("Connect a wallet to continue.");
     return;
@@ -255,7 +493,9 @@ const mintNow = async () => {
       return;
     }
     setMintStatus("Submitting mint transaction...");
-    const tx = await contract.mint(packed, { value: mintPriceWei });
+    const tx = rasterUri
+      ? await contract.mintWithImage(packed, rasterUri, { value: mintPriceWei })
+      : await contract.mint(packed, { value: mintPriceWei });
     if (config.blockExplorerUrl) {
       const base = config.blockExplorerUrl.replace(/\/$/, "");
       setMintStatus(`Transaction submitted. View on explorer: ${base}/tx/${tx.hash}`);
@@ -282,9 +522,88 @@ const mintNow = async () => {
   }
 };
 
+const handleMintIntent = () => {
+  if (!contract || !signer || !mintPriceWei || !packed) {
+    setMintStatus("Connect a wallet to continue.");
+    return;
+  }
+  if (mintPaused) {
+    setMintStatus("Minting is paused.");
+    return;
+  }
+  openMintModal();
+};
+
+const ensureRasterPinned = async () => {
+  if (rasterUri) {
+    return { rasterUri, rasterGatewayUrl };
+  }
+  if (!packed) {
+    throw new Error("Missing packed state.");
+  }
+  const packedHex = normalizePackedHex(packed);
+  const hash = window.ethers ? window.ethers.keccak256(packedHex) : "";
+  const svg = renderSvgFromPacked(packed);
+  setModalStatus("Rendering PNG preview...");
+  const pngBlob = await renderSvgToPngBlob(svg);
+  setModalStatus("Uploading PNG to Pinata...");
+  const fileName = `sculpture-${hash ? hash.slice(2, 10) : Date.now()}.png`;
+  const pinned = await pinPngToPinata(pngBlob, fileName);
+  rasterUri = pinned.ipfsUri;
+  rasterGatewayUrl = pinned.gatewayUrl;
+  if (summaryRasterEl) {
+    summaryRasterEl.textContent = formatShort(rasterUri);
+  }
+  if (summaryNoteEl) {
+    summaryNoteEl.textContent = `Pinned: ${formatShort(rasterGatewayUrl)}`;
+  }
+  return { rasterUri, rasterGatewayUrl };
+};
+
 if (connectButton) {
   connectButton.addEventListener("click", connectWallet);
 }
 if (mintButton) {
-  mintButton.addEventListener("click", mintNow);
+  mintButton.addEventListener("click", handleMintIntent);
+}
+if (toggleNetworkButton && window.setMintNetwork) {
+  updateToggleLabel();
+  toggleNetworkButton.addEventListener("click", () => {
+    const target = pickToggleTarget();
+    if (!target) return;
+    window.setMintNetwork(target);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("network", target);
+    window.location.href = nextUrl.toString();
+  });
+}
+if (mintCancelButton) {
+  mintCancelButton.addEventListener("click", closeMintModal);
+}
+if (mintModalEl) {
+  mintModalEl.addEventListener("click", (event) => {
+    if (event.target && event.target.hasAttribute("data-mint-close")) {
+      closeMintModal();
+    }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && mintModalEl.classList.contains("is-open")) {
+      closeMintModal();
+    }
+  });
+}
+if (mintConfirmButton) {
+  mintConfirmButton.addEventListener("click", async () => {
+    try {
+      await ensureRasterPinned();
+      await signMintSummary();
+      await submitMint();
+      closeMintModal();
+    } catch (err) {
+      setModalStatus(formatStatusError(err, "Mint flow cancelled or failed."));
+      if (summaryNoteEl) {
+        summaryNoteEl.textContent = "Resolve the error above to continue.";
+      }
+    }
+  });
 }

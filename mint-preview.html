@@ -122,6 +122,68 @@
         letter-spacing: 0.02em;
         text-transform: none;
       }
+      .mint-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        z-index: 10;
+      }
+      .mint-modal.is-open {
+        display: flex;
+      }
+      .mint-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(3, 6, 12, 0.7);
+        backdrop-filter: blur(6px);
+      }
+      .mint-modal__panel {
+        position: relative;
+        width: min(640px, 92vw);
+        background: rgba(12, 18, 30, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+      .mint-modal__title {
+        margin: 0 0 6px;
+        font-size: 18px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .mint-modal__subtitle {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .mint-modal__grid {
+        display: grid;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .mint-modal__grid span {
+        color: var(--ink);
+      }
+      .mint-modal__note {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--accent);
+      }
+      .mint-modal__actions {
+        margin-top: 16px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .mint-modal__actions button {
+        flex: 1 1 160px;
+      }
     </style>
   </head>
   <body>
@@ -146,12 +208,39 @@
       <div class="mint-actions">
         <button id="connect-wallet" type="button">Connect wallet</button>
         <button id="mint-now" type="button" disabled>Mint now</button>
+        <button id="toggle-network" type="button">Switch network</button>
       </div>
       <textarea id="packed-state" readonly></textarea>
       <div id="status" class="status" role="status"></div>
       <div id="mint-status" class="status" role="status"></div>
     </main>
+    <div id="mint-modal" class="mint-modal" aria-hidden="true">
+      <div class="mint-modal__backdrop" data-mint-close></div>
+      <div class="mint-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mint-modal-title">
+        <h2 id="mint-modal-title" class="mint-modal__title">Confirm Mint</h2>
+        <p class="mint-modal__subtitle">
+          Review the details below. We'll render &amp; pin a PNG, then you sign a mint summary and submit the mint.
+        </p>
+        <div class="mint-modal__grid">
+          <div>Network: <span id="summary-network">—</span></div>
+          <div>Contract: <span id="summary-contract">—</span></div>
+          <div>Mint price: <span id="summary-price">—</span></div>
+          <div>Packed hash: <span id="summary-hash">—</span></div>
+          <div>Raster PNG: <span id="summary-raster">Pending</span></div>
+        </div>
+        <div class="mint-modal__note" id="summary-note">Waiting for signature.</div>
+        <div class="mint-modal__actions">
+          <button id="mint-cancel" type="button">Cancel</button>
+          <button id="mint-confirm" type="button">Sign &amp; Mint</button>
+        </div>
+        <div id="mint-modal-status" class="status" role="status"></div>
+      </div>
+    </div>
 
+    <script>
+      window.process = window.process || { env: { NODE_ENV: "production" } };
+      window.global = window.global || window;
+    </script>
     <script src="js/mint-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js"></script>

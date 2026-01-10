@@ -13,6 +13,7 @@ const contractEl = document.getElementById("mint-address");
 const priceEl = document.getElementById("mint-price");
 const mintingStatusEl = document.getElementById("minting-status");
 const metadataStatusEl = document.getElementById("metadata-status");
+const pinataStatusEl = document.getElementById("pinata-status");
 const walletStatusEl = document.getElementById("wallet-status");
 const toggleNetworkButton = document.getElementById("toggle-network");
 const mintModalEl = document.getElementById("mint-modal");
@@ -198,14 +199,25 @@ const getPinataJwt = () => {
   return stored ? stored.trim() : "";
 };
 
+const updatePinataStatus = () => {
+  if (!pinataStatusEl) return;
+  const jwt = getPinataJwt();
+  pinataStatusEl.textContent = jwt ? "Set" : "Missing";
+};
+
 const ensurePinataJwt = () => {
   const existing = getPinataJwt();
-  if (existing) return existing;
+  if (existing) {
+    updatePinataStatus();
+    return existing;
+  }
   const entered = window.prompt("Enter Pinata JWT to pin the PNG (stored locally).");
   if (entered && entered.trim()) {
     window.localStorage.setItem("pinataJwt", entered.trim());
+    updatePinataStatus();
     return entered.trim();
   }
+  updatePinataStatus();
   return "";
 };
 
@@ -307,6 +319,7 @@ const loadPreview = (packed) => {
 
 const packed = getPacked();
 showConfig();
+updatePinataStatus();
 
 if (!packed) {
   setStatus("No packed state found. Generate one from index.html.");

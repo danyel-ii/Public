@@ -41,7 +41,7 @@ const handler = async (req, res) => {
     sendJson(res, 500, { error: "PINATA_JWT is not configured." });
     return;
   }
-  const metadataGroupId = process.env.PINATA_METADATA_GROUP_ID || "";
+  const metadataGroupId = (process.env.PINATA_METADATA_GROUP_ID || "").trim();
 
   let dataUrl = "";
   let fileName = "";
@@ -137,8 +137,13 @@ const handler = async (req, res) => {
 
   try {
     let groupData = null;
+    let groupError = "";
     if (kind === "json" && metadataGroupId) {
-      groupData = await uploadToGroup();
+      try {
+        groupData = await uploadToGroup();
+      } catch (err) {
+        groupError = err?.message || "Pinata group upload failed.";
+      }
     }
     const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
@@ -164,6 +169,7 @@ const handler = async (req, res) => {
       fileName: name,
       groupId: metadataGroupId || "",
       groupCid: groupData?.cid || "",
+      groupError,
     });
   } catch (err) {
     sendJson(res, 500, { error: err?.message || "Pinata request failed." });

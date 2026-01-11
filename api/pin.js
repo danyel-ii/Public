@@ -1,4 +1,5 @@
 const DEFAULT_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
+const PINATA_UPLOAD_ENDPOINT = "https://uploads.pinata.cloud/v3/files";
 
 const allowOrigin = (req, res) => {
   const raw = process.env.PIN_API_ORIGINS || "*";
@@ -40,6 +41,7 @@ const handler = async (req, res) => {
     sendJson(res, 500, { error: "PINATA_JWT is not configured." });
     return;
   }
+  const metadataGroupId = process.env.PINATA_METADATA_GROUP_ID || "";
 
   let dataUrl = "";
   let fileName = "";
@@ -113,7 +115,31 @@ const handler = async (req, res) => {
     form.append("pinataOptions", JSON.stringify({ wrapWithDirectory: true }));
   }
 
+  const uploadToGroup = async () => {
+    if (!metadataGroupId) return null;
+    const groupForm = new FormData();
+    groupForm.append("file", new Blob([buffer], { type: contentType }), name);
+    groupForm.append("name", name);
+    groupForm.append("group_id", metadataGroupId);
+    const response = await fetch(PINATA_UPLOAD_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: groupForm,
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json?.error || json?.message || "Pinata group upload failed.");
+    }
+    return json?.data || null;
+  };
+
   try {
+    let groupData = null;
+    if (kind === "json" && metadataGroupId) {
+      groupData = await uploadToGroup();
+    }
     const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
       headers: {
@@ -136,6 +162,8 @@ const handler = async (req, res) => {
       gatewayUrl: `${gateway}${path}`,
       baseUri: wrapWithDirectory ? `ipfs://${cid}/` : "",
       fileName: name,
+      groupId: metadataGroupId || "",
+      groupCid: groupData?.cid || "",
     });
   } catch (err) {
     sendJson(res, 500, { error: err?.message || "Pinata request failed." });

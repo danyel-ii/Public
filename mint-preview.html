@@ -184,6 +184,64 @@
       .mint-modal__actions button {
         flex: 1 1 160px;
       }
+      .celebration {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        z-index: 20;
+      }
+      .celebration.is-open {
+        display: flex;
+      }
+      .celebration__backdrop {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top, rgba(36, 82, 128, 0.35), rgba(3, 6, 12, 0.8));
+        backdrop-filter: blur(6px);
+      }
+      .celebration__panel {
+        position: relative;
+        width: min(680px, 94vw);
+        background: rgba(10, 16, 28, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 20px;
+        padding: 22px;
+        box-shadow: 0 32px 120px rgba(0, 0, 0, 0.55);
+      }
+      .celebration__title {
+        margin: 0 0 8px;
+        font-size: 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .celebration__message {
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .celebration__meta {
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .celebration__meta span {
+        color: var(--ink);
+      }
+      .celebration__status {
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .celebration__actions {
+        margin-top: 18px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
     </style>
   </head>
   <body>
@@ -235,6 +293,23 @@
           <button id="mint-confirm" type="button">Sign &amp; Mint</button>
         </div>
         <div id="mint-modal-status" class="status" role="status"></div>
+      </div>
+    </div>
+    <div id="mint-celebration" class="celebration" aria-hidden="true">
+      <div class="celebration__backdrop" data-celebration-close></div>
+      <div class="celebration__panel" role="dialog" aria-modal="true" aria-labelledby="celebration-title">
+        <h2 id="celebration-title" class="celebration__title">Transaction Submitted</h2>
+        <p id="celebration-message" class="celebration__message">
+          Your mint has been submitted. Confirmation can take a moment.
+        </p>
+        <div class="celebration__meta">
+          <div>Status: <span id="celebration-status" class="celebration__status">Pending</span></div>
+          <div>Transaction: <span id="celebration-hash">—</span></div>
+        </div>
+        <div class="celebration__actions">
+          <a id="celebration-link" class="button" href="#" target="_blank" rel="noreferrer">View transaction</a>
+          <button id="celebration-close" type="button">Close</button>
+        </div>
       </div>
     </div>
 

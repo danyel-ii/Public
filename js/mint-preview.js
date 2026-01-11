@@ -26,6 +26,13 @@ const summaryPriceEl = document.getElementById("summary-price");
 const summaryHashEl = document.getElementById("summary-hash");
 const summaryRasterEl = document.getElementById("summary-raster");
 const summaryNoteEl = document.getElementById("summary-note");
+const celebrationEl = document.getElementById("mint-celebration");
+const celebrationTitleEl = document.getElementById("celebration-title");
+const celebrationMessageEl = document.getElementById("celebration-message");
+const celebrationStatusEl = document.getElementById("celebration-status");
+const celebrationHashEl = document.getElementById("celebration-hash");
+const celebrationLinkEl = document.getElementById("celebration-link");
+const celebrationCloseButton = document.getElementById("celebration-close");
 
 const config = window.getMintConfig ? window.getMintConfig() : (window.MINT_CONFIG || {});
 const configKey = (window.MINT_CONFIG_ACTIVE_KEY || "sepolia").toLowerCase();
@@ -174,6 +181,9 @@ const formatStatusError = (err, fallback) => {
   if (err.code === 4001 || err.code === "ACTION_REJECTED") {
     return "Wallet request was rejected.";
   }
+  if (err.message && err.message.includes("Failed to fetch")) {
+    return "Pinning endpoint unreachable. Check CORS or network.";
+  }
   const message = err.shortMessage || err.message || fallback;
   if (message.includes("MintPaused")) {
     return "Minting is currently paused.";
@@ -188,6 +198,43 @@ const formatStatusError = (err, fallback) => {
     return "Metadata has been permanently frozen.";
   }
   return message;
+};
+
+const openCelebration = ({ title, message, status, txHash, txUrl }) => {
+  if (!celebrationEl) return;
+  if (celebrationTitleEl) celebrationTitleEl.textContent = title || "Transaction Submitted";
+  if (celebrationMessageEl) celebrationMessageEl.textContent = message || "";
+  if (celebrationStatusEl) celebrationStatusEl.textContent = status || "Pending";
+  if (celebrationHashEl) celebrationHashEl.textContent = txHash ? formatAddress(txHash) : "—";
+  if (celebrationLinkEl) {
+    if (txUrl) {
+      celebrationLinkEl.href = txUrl;
+      celebrationLinkEl.removeAttribute("aria-disabled");
+    } else {
+      celebrationLinkEl.href = "#";
+      celebrationLinkEl.setAttribute("aria-disabled", "true");
+    }
+  }
+  celebrationEl.classList.add("is-open");
+  celebrationEl.setAttribute("aria-hidden", "false");
+};
+
+const updateCelebration = ({ title, message, status, txHash, txUrl }) => {
+  if (!celebrationEl || !celebrationEl.classList.contains("is-open")) {
+    openCelebration({ title, message, status, txHash, txUrl });
+    return;
+  }
+  if (title && celebrationTitleEl) celebrationTitleEl.textContent = title;
+  if (message && celebrationMessageEl) celebrationMessageEl.textContent = message;
+  if (status && celebrationStatusEl) celebrationStatusEl.textContent = status;
+  if (txHash && celebrationHashEl) celebrationHashEl.textContent = formatAddress(txHash);
+  if (txUrl && celebrationLinkEl) celebrationLinkEl.href = txUrl;
+};
+
+const closeCelebration = () => {
+  if (!celebrationEl) return;
+  celebrationEl.classList.remove("is-open");
+  celebrationEl.setAttribute("aria-hidden", "true");
 };
 
 const updatePinningStatus = () => {
@@ -444,24 +491,38 @@ const signMintSummary = async () => {
 
 const submitMint = async () => {
   if (!contract || !signer || !mintPriceWei || !packed) {
-    setMintStatus("Connect a wallet to continue.");
-    return;
+    const error = new Error("Connect a wallet to continue.");
+    setMintStatus(error.message);
+    throw error;
   }
+  if (mintPaused) {
+    const error = new Error("Minting is paused.");
+    setMintStatus(error.message);
+    throw error;
+  }
+  let txHash = "";
+  let txUrl = "";
   try {
-    if (mintPaused) {
-      setMintStatus("Minting is paused.");
-      return;
-    }
     setMintStatus("Submitting mint transaction...");
     const tx = rasterUri
       ? await contract.mintWithImage(packed, rasterUri, { value: mintPriceWei })
       : await contract.mint(packed, { value: mintPriceWei });
+    txHash = tx.hash;
     if (config.blockExplorerUrl) {
       const base = config.blockExplorerUrl.replace(/\/$/, "");
-      setMintStatus(`Transaction submitted. View on explorer: ${base}/tx/${tx.hash}`);
+      txUrl = `${base}/tx/${tx.hash}`;
+      setMintStatus(`Transaction submitted. View on explorer: ${txUrl}`);
     } else {
       setMintStatus(`Transaction submitted: ${formatAddress(tx.hash)}`);
     }
+    openCelebration({
+      title: "Transaction Submitted",
+      message: "Your mint is on the way. Confirmation can take a moment.",
+      status: "Pending",
+      txHash,
+      txUrl,
+    });
+    closeMintModal();
     const receipt = await tx.wait();
     const transfer = receipt.logs
       .map((log) => {
@@ -473,12 +534,38 @@ const submitMint = async () => {
       })
       .find((parsed) => parsed && parsed.name === "Transfer");
     if (transfer) {
-      setMintStatus(`Minted token #${transfer.args.tokenId.toString()}.`);
+      const tokenId = transfer.args.tokenId.toString();
+      setMintStatus(`Minted token #${tokenId}.`);
+      updateCelebration({
+        title: "Mint Confirmed",
+        message: `Your sculpture has been minted. Token #${tokenId}.`,
+        status: "Confirmed",
+        txHash,
+        txUrl,
+      });
     } else {
       setMintStatus("Mint confirmed. Check your wallet for the token.");
+      updateCelebration({
+        title: "Mint Confirmed",
+        message: "Your sculpture has been minted.",
+        status: "Confirmed",
+        txHash,
+        txUrl,
+      });
     }
   } catch (err) {
-    setMintStatus(formatStatusError(err, "Mint failed. Please try again."));
+    const message = formatStatusError(err, "Mint failed. Please try again.");
+    setMintStatus(message);
+    if (txHash) {
+      updateCelebration({
+        title: "Transaction Failed",
+        message,
+        status: "Failed",
+        txHash,
+        txUrl,
+      });
+    }
+    throw err;
   }
 };
 
@@ -572,12 +659,27 @@ if (mintConfirmButton) {
       await ensurePinnedRaster();
       await signMintSummary();
       await submitMint();
-      closeMintModal();
     } catch (err) {
       setModalStatus(formatStatusError(err, "Mint flow cancelled or failed."));
       if (summaryNoteEl) {
         summaryNoteEl.textContent = "Resolve the error above to continue.";
       }
+    }
+  });
+}
+
+if (celebrationCloseButton) {
+  celebrationCloseButton.addEventListener("click", closeCelebration);
+}
+if (celebrationEl) {
+  celebrationEl.addEventListener("click", (event) => {
+    if (event.target && event.target.hasAttribute("data-celebration-close")) {
+      closeCelebration();
+    }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && celebrationEl.classList.contains("is-open")) {
+      closeCelebration();
     }
   });
 }

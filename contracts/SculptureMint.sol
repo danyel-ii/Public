@@ -796,6 +796,7 @@ library Base64 {
     if (data.length == 0) return "";
 
     string memory table = TABLE_ENCODE;
+    // slither-disable-next-line divide-before-multiply
     uint256 encodedLen = 4 * ((data.length + 2) / 3);
 
     string memory result = new string(encodedLen + 32);

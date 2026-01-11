@@ -123,7 +123,7 @@ library SculptureRenderer {
       )
     );
 
-    string[LAYER_COUNT] memory bevels;
+    string[LAYER_COUNT] memory bevels = ["", "", ""];
     for (uint256 layer = 0; layer < LAYER_COUNT; layer++) {
       (string memory mask, string memory bevel) = buildMask(state, layer);
       defs = string(abi.encodePacked(defs, mask));
@@ -402,6 +402,7 @@ library SculptureRenderer {
       mixAmt += (FP * 6) / 10;
     }
     uint256 rand = hash12(cellX * FP_I + cfg.seed42, cellY * FP_I + cfg.seed42);
+    // slither-disable-next-line divide-before-multiply
     r = ((cfg.radiusFp * 60) / 100) + (((cfg.radiusFp * 50) / 100) * rand) / FP;
     corner = (r * (FP - mixAmt)) / FP;
   }

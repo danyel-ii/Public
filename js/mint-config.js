@@ -6,7 +6,7 @@
       chainName: "Sepolia",
       rpcUrl: "https://rpc.sepolia.org",
       blockExplorerUrl: "https://sepolia.etherscan.io",
-      pinningEndpoint: "https://paperclips.vercel.app/api/pin",
+      pinningEndpoint: "https://paperclips-olive.vercel.app/api/pin",
       nativeCurrency: {
         name: "Ether",
         symbol: "ETH",
@@ -20,7 +20,7 @@
       chainName: "Base",
       rpcUrl: "https://mainnet.base.org",
       blockExplorerUrl: "https://basescan.org",
-      pinningEndpoint: "https://paperclips.vercel.app/api/pin",
+      pinningEndpoint: "https://paperclips-olive.vercel.app/api/pin",
       nativeCurrency: {
         name: "Ether",
         symbol: "ETH",

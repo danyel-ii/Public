@@ -2,10 +2,10 @@
   const configs = {
     sepolia: {
       contractAddress: "0x5bd7d5f93ba55dfcfc4aa8cfa1109314f6890129",
-      chainId: 11155111,
-      chainName: "Sepolia",
-      rpcUrl: "https://rpc.sepolia.org",
-      blockExplorerUrl: "https://sepolia.etherscan.io",
+      chainId: 84532,
+      chainName: "Base Sepolia",
+      rpcUrl: "https://sepolia.base.org",
+      blockExplorerUrl: "https://sepolia.basescan.org",
       pinningEndpoint: "https://paperclips-olive.vercel.app/api/pin",
       nativeCurrency: {
         name: "Ether",

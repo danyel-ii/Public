@@ -324,7 +324,7 @@ contract SculptureMint {
       return resolveGateway(metadataUri);
     }
     if (useIpfsMetadata && bytes(ipfsBaseUri).length > 0) {
-      return string(abi.encodePacked(ipfsBaseUri, toString(tokenId)));
+      return string.concat(ipfsBaseUri, toString(tokenId));
     }
     bytes memory packed = _packedState[tokenId];
     SculptureRenderer.State memory state = SculptureRenderer.decode(packed);

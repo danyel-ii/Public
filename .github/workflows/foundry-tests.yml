@@ -62,9 +62,9 @@ jobs:
       - name: Run Mythril (Docker)
         run: |
           docker run --rm -v "$PWD":/workspace -w /workspace mythril/myth:0.24.8 \
-            analyze contracts/SculptureMint.sol --solc-version 0.8.20 --execution-timeout 300 --min-severity low
+            analyze contracts/SculptureMint.sol --execution-timeout 300
           docker run --rm -v "$PWD":/workspace -w /workspace mythril/myth:0.24.8 \
-            analyze contracts/SculptureRenderer.sol --solc-version 0.8.20 --execution-timeout 300 --min-severity low
+            analyze contracts/SculptureRenderer.sol --execution-timeout 300
 
   sepolia-fork-tests:
     runs-on: ubuntu-latest

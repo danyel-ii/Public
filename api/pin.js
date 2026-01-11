@@ -1,13 +1,5 @@
 const DEFAULT_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 
-module.exports.config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "6mb",
-    },
-  },
-};
-
 const allowOrigin = (req, res) => {
   const raw = process.env.PIN_API_ORIGINS || "*";
   if (raw === "*") {
@@ -27,7 +19,7 @@ const sendJson = (res, status, payload) => {
   res.end(JSON.stringify(payload));
 };
 
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
   allowOrigin(req, res);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -103,4 +95,13 @@ module.exports = async (req, res) => {
   } catch (err) {
     sendJson(res, 500, { error: err?.message || "Pinata request failed." });
   }
+};
+
+module.exports = handler;
+module.exports.config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "6mb",
+    },
+  },
 };

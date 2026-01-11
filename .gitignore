@@ -7,3 +7,5 @@ lib/
 broadcast/
 node_modules/
 lcov.info
+.vercel
+.env*.local

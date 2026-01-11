@@ -43,33 +43,75 @@ const handler = async (req, res) => {
 
   let dataUrl = "";
   let fileName = "";
+  let svg = "";
+  let metadata = null;
+  let kind = "png";
+  let wrapWithDirectory = false;
   try {
     const body = req.body || {};
     dataUrl = body.dataUrl || "";
     fileName = body.fileName || "";
+    svg = body.svg || "";
+    metadata = body.metadata ?? null;
+    kind = String(body.kind || "png").toLowerCase();
+    wrapWithDirectory = Boolean(body.wrapWithDirectory);
   } catch (err) {
     sendJson(res, 400, { error: "Invalid JSON body." });
     return;
   }
 
-  if (!dataUrl.startsWith("data:image/png;base64,")) {
-    sendJson(res, 400, { error: "dataUrl must be a PNG data URL." });
+  const sanitizeName = (value) => value.replace(/[^a-zA-Z0-9._-]/g, "");
+  let buffer;
+  let contentType = "application/octet-stream";
+  let typeLabel = kind;
+  let name = sanitizeName(fileName);
+
+  if (kind === "png") {
+    if (!dataUrl.startsWith("data:image/png;base64,")) {
+      sendJson(res, 400, { error: "dataUrl must be a PNG data URL." });
+      return;
+    }
+    const base64 = dataUrl.split(",", 2)[1];
+    buffer = Buffer.from(base64, "base64");
+    contentType = "image/png";
+    typeLabel = "png";
+    name = name || `sculpture-${Date.now()}.png`;
+  } else if (kind === "svg") {
+    if (!svg || typeof svg !== "string") {
+      sendJson(res, 400, { error: "svg must be a non-empty string." });
+      return;
+    }
+    buffer = Buffer.from(svg, "utf8");
+    contentType = "image/svg+xml";
+    typeLabel = "svg";
+    name = name || `sculpture-${Date.now()}.svg`;
+  } else if (kind === "json") {
+    if (!metadata) {
+      sendJson(res, 400, { error: "metadata is required for json pinning." });
+      return;
+    }
+    const json = typeof metadata === "string" ? metadata : JSON.stringify(metadata);
+    buffer = Buffer.from(json, "utf8");
+    contentType = "application/json";
+    typeLabel = "json";
+    name = name || `metadata-${Date.now()}`;
+  } else {
+    sendJson(res, 400, { error: "Unsupported pin kind. Use png, svg, or json." });
     return;
   }
 
-  const base64 = dataUrl.split(",", 2)[1];
-  const buffer = Buffer.from(base64, "base64");
-  const name = fileName || `sculpture-${Date.now()}.png`;
-
   const form = new FormData();
-  form.append("file", new Blob([buffer], { type: "image/png" }), name);
+  form.append("file", new Blob([buffer], { type: contentType }), name);
   form.append(
     "pinataMetadata",
     JSON.stringify({
       name,
-      keyvalues: { collection: "paperclips", type: "png" },
+      keyvalues: { collection: "paperclips", type: typeLabel },
     })
   );
+  if (wrapWithDirectory) {
+    form.append("pinataOptions", JSON.stringify({ wrapWithDirectory: true }));
+  }
 
   try {
     const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
@@ -87,10 +129,13 @@ const handler = async (req, res) => {
 
     const cid = json.IpfsHash;
     const gateway = process.env.PINATA_GATEWAY || DEFAULT_GATEWAY;
+    const path = wrapWithDirectory ? `${cid}/${name}` : cid;
     sendJson(res, 200, {
       cid,
-      ipfsUri: `ipfs://${cid}`,
-      gatewayUrl: `${gateway}${cid}`,
+      ipfsUri: `ipfs://${path}`,
+      gatewayUrl: `${gateway}${path}`,
+      baseUri: wrapWithDirectory ? `ipfs://${cid}/` : "",
+      fileName: name,
     });
   } catch (err) {
     sendJson(res, 500, { error: err?.message || "Pinata request failed." });

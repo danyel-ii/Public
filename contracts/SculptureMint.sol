@@ -21,6 +21,7 @@ contract SculptureMint {
   error MetadataFrozen();
   error MintPaused();
   error MintPriceNotMet(uint256 required, uint256 provided);
+  error EmptyAnimationUri();
   error EmptyRasterUri();
   error NotApproved();
   error NotMinted(uint256 tokenId);
@@ -36,6 +37,7 @@ contract SculptureMint {
   event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
   event IpfsBaseUriUpdated(string previousUri, string newUri);
   event IpfsMetadataToggled(bool enabled);
+  event AnimationUriStored(uint256 indexed tokenId, string uri);
   event MetadataFrozenSet();
   event MintPausedSet(bool paused);
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -65,6 +67,7 @@ contract SculptureMint {
   mapping(address => mapping(address => bool)) private _operatorApprovals;
   mapping(uint256 => bytes) private _packedState;
   mapping(uint256 => string) private _rasterUri;
+  mapping(uint256 => string) private _animationUri;
 
   uint256 private constant LAYER_COUNT = 3;
   uint256 private constant PARAM_COUNT = 7;
@@ -204,7 +207,7 @@ contract SculptureMint {
   }
 
   function mint(bytes calldata packed) external payable nonReentrant returns (uint256 tokenId) {
-    tokenId = _mintPacked(packed, "");
+    tokenId = _mintPacked(packed, "", "");
   }
 
   function mintWithImage(
@@ -214,10 +217,28 @@ contract SculptureMint {
     if (bytes(rasterUri).length == 0) {
       revert EmptyRasterUri();
     }
-    tokenId = _mintPacked(packed, rasterUri);
+    tokenId = _mintPacked(packed, rasterUri, "");
   }
 
-  function _mintPacked(bytes calldata packed, string memory rasterUri) internal returns (uint256 tokenId) {
+  function mintWithMedia(
+    bytes calldata packed,
+    string calldata rasterUri,
+    string calldata animationUri
+  ) external payable nonReentrant returns (uint256 tokenId) {
+    if (bytes(rasterUri).length == 0) {
+      revert EmptyRasterUri();
+    }
+    if (bytes(animationUri).length == 0) {
+      revert EmptyAnimationUri();
+    }
+    tokenId = _mintPacked(packed, rasterUri, animationUri);
+  }
+
+  function _mintPacked(
+    bytes calldata packed,
+    string memory rasterUri,
+    string memory animationUri
+  ) internal returns (uint256 tokenId) {
     if (mintPaused) {
       revert MintPaused();
     }
@@ -230,6 +251,10 @@ contract SculptureMint {
     if (bytes(rasterUri).length > 0) {
       _rasterUri[tokenId] = rasterUri;
       emit RasterUriStored(tokenId, rasterUri);
+    }
+    if (bytes(animationUri).length > 0) {
+      _animationUri[tokenId] = animationUri;
+      emit AnimationUriStored(tokenId, animationUri);
     }
     totalSupply = tokenId;
     _safeMint(msg.sender, tokenId, "");
@@ -250,6 +275,13 @@ contract SculptureMint {
     return _rasterUri[tokenId];
   }
 
+  function getAnimationUri(uint256 tokenId) external view returns (string memory) {
+    if (!_exists(tokenId)) {
+      revert NotMinted(tokenId);
+    }
+    return _animationUri[tokenId];
+  }
+
   function tokenURI(uint256 tokenId) public view returns (string memory) {
     if (!_exists(tokenId)) {
       revert NotMinted(tokenId);
@@ -263,9 +295,13 @@ contract SculptureMint {
     string memory fullSvg = SculptureRenderer.renderSvg(state);
     string memory svgForMetadata = strictSvg ? preview : fullSvg;
     string memory rasterUri = _rasterUri[tokenId];
+    string memory animationUri = _animationUri[tokenId];
     string memory image = bytes(rasterUri).length > 0
       ? resolveGateway(rasterUri)
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
+    string memory animationUrl = bytes(animationUri).length > 0
+      ? resolveGateway(animationUri)
+      : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svgForMetadata))));
     string memory attrs = buildAttributes(state);
     string memory json = string(
       abi.encodePacked(
@@ -282,8 +318,8 @@ contract SculptureMint {
         "\"image_data\":\"",
         svgForMetadata,
         "\",",
-        "\"animation_url\":\"data:image/svg+xml;base64,",
-        Base64.encode(bytes(svgForMetadata)),
+        "\"animation_url\":\"",
+        animationUrl,
         "\",",
         "\"attributes\":",
         attrs,

@@ -122,12 +122,30 @@ contract SculptureMintTest {
     assert(keccak256(bytes(stored)) == keccak256(bytes(uri)));
   }
 
+  function testMintWithMediaStoresUris() public {
+    string memory raster = "ipfs://example-cid/sculpture.png";
+    string memory animation = "ipfs://example-cid/sculpture.svg";
+    mint.mintWithMedia{ value: PRICE }(PACKED_STATE, raster, animation);
+    string memory storedRaster = mint.getRasterUri(1);
+    string memory storedAnimation = mint.getAnimationUri(1);
+    assert(keccak256(bytes(storedRaster)) == keccak256(bytes(raster)));
+    assert(keccak256(bytes(storedAnimation)) == keccak256(bytes(animation)));
+  }
+
   function testMintWithImageRejectsEmptyUri() public {
     (bool ok, bytes memory data) = address(mint).call{ value: PRICE }(
       abi.encodeWithSelector(mint.mintWithImage.selector, PACKED_STATE, "")
     );
     assert(!ok);
     assert(_revertSelector(data) == SculptureMint.EmptyRasterUri.selector);
+  }
+
+  function testMintWithMediaRejectsEmptyAnimationUri() public {
+    (bool ok, bytes memory data) = address(mint).call{ value: PRICE }(
+      abi.encodeWithSelector(mint.mintWithMedia.selector, PACKED_STATE, "ipfs://x", "")
+    );
+    assert(!ok);
+    assert(_revertSelector(data) == SculptureMint.EmptyAnimationUri.selector);
   }
 
   function testSetStrictSvgRejectsNonOwner() public {

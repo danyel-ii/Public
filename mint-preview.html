@@ -87,6 +87,15 @@
         opacity: 0.6;
         cursor: not-allowed;
       }
+      .mint-admin {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .mint-admin button {
+        flex: 1 1 220px;
+      }
       button,
       a.button {
         display: inline-flex;
@@ -269,6 +278,9 @@
         <button id="mint-now" type="button" disabled>Mint now</button>
         <button id="toggle-network" type="button">Switch network</button>
       </div>
+      <div class="mint-admin">
+        <button id="pin-metadata" type="button" disabled>Pin metadata &amp; enable IPFS</button>
+      </div>
       <textarea id="packed-state" readonly></textarea>
       <div id="status" class="status" role="status"></div>
       <div id="mint-status" class="status" role="status"></div>
@@ -281,12 +293,14 @@
           Review the details below. You will sign a mint summary, then submit the mint transaction.
         </p>
         <div class="mint-modal__grid">
-          <div>Network: <span id="summary-network">—</span></div>
-          <div>Contract: <span id="summary-contract">—</span></div>
-          <div>Mint price: <span id="summary-price">—</span></div>
-          <div>Packed hash: <span id="summary-hash">—</span></div>
-          <div>Raster PNG: <span id="summary-raster">Pending</span></div>
-        </div>
+        <div>Network: <span id="summary-network">—</span></div>
+        <div>Contract: <span id="summary-contract">—</span></div>
+        <div>Mint price: <span id="summary-price">—</span></div>
+        <div>Packed hash: <span id="summary-hash">—</span></div>
+        <div>Raster PNG: <span id="summary-raster">Pending</span></div>
+        <div>Animation SVG: <span id="summary-animation">Pending</span></div>
+        <div>Metadata JSON: <span id="summary-metadata">Pending</span></div>
+      </div>
         <div class="mint-modal__note" id="summary-note">Waiting for signature.</div>
         <div class="mint-modal__actions">
           <button id="mint-cancel" type="button">Cancel</button>

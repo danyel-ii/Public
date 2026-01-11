@@ -25,6 +25,8 @@ const summaryContractEl = document.getElementById("summary-contract");
 const summaryPriceEl = document.getElementById("summary-price");
 const summaryHashEl = document.getElementById("summary-hash");
 const summaryRasterEl = document.getElementById("summary-raster");
+const summaryAnimationEl = document.getElementById("summary-animation");
+const summaryMetadataEl = document.getElementById("summary-metadata");
 const summaryNoteEl = document.getElementById("summary-note");
 const celebrationEl = document.getElementById("mint-celebration");
 const celebrationTitleEl = document.getElementById("celebration-title");
@@ -33,6 +35,7 @@ const celebrationStatusEl = document.getElementById("celebration-status");
 const celebrationHashEl = document.getElementById("celebration-hash");
 const celebrationLinkEl = document.getElementById("celebration-link");
 const celebrationCloseButton = document.getElementById("celebration-close");
+const pinMetadataButton = document.getElementById("pin-metadata");
 
 const config = window.getMintConfig ? window.getMintConfig() : (window.MINT_CONFIG || {});
 const configKey = (window.MINT_CONFIG_ACTIVE_KEY || "sepolia").toLowerCase();
@@ -40,11 +43,16 @@ const configList = window.MINT_CONFIGS || {};
 const MINT_ABI = [
   "function mint(bytes packed) payable returns (uint256)",
   "function mintWithImage(bytes packed, string rasterUri) payable returns (uint256)",
+  "function mintWithMedia(bytes packed, string rasterUri, string animationUri) payable returns (uint256)",
   "function mintPriceWei() view returns (uint256)",
   "function mintPaused() view returns (bool)",
   "function metadataFrozen() view returns (bool)",
   "function useIpfsMetadata() view returns (bool)",
   "function ipfsBaseUri() view returns (string)",
+  "function owner() view returns (address)",
+  "function tokenURI(uint256 tokenId) view returns (string)",
+  "function setIpfsBaseUri(string uri)",
+  "function setUseIpfsMetadata(bool enabled)",
 ];
 
 const pinningEndpoint = config.pinningEndpoint || "";
@@ -141,6 +149,12 @@ const openMintModal = () => {
   if (summaryRasterEl) {
     summaryRasterEl.textContent = rasterUri ? formatShort(rasterUri) : "Pending";
   }
+  if (summaryAnimationEl) {
+    summaryAnimationEl.textContent = animationUri ? formatShort(animationUri) : "Pending";
+  }
+  if (summaryMetadataEl) {
+    summaryMetadataEl.textContent = metadataUri ? formatShort(metadataUri) : "Pending";
+  }
   if (summaryNoteEl) {
     summaryNoteEl.textContent = "Pinning will run before you sign the Mint Summary.";
   }
@@ -190,6 +204,9 @@ const formatStatusError = (err, fallback) => {
   }
   if (message.includes("MintPriceNotMet")) {
     return "Mint price not met. Check the required amount.";
+  }
+  if (message.includes("EmptyAnimationUri")) {
+    return "Animation SVG was missing. Re-pin and try again.";
   }
   if (message.includes("InvalidPackedLength")) {
     return "Packed state is invalid. Refresh the preview.";
@@ -350,6 +367,13 @@ let useIpfsMetadata = null;
 let ipfsBaseUri = null;
 let mintSummarySignature = null;
 let rasterUri = "";
+let rasterGatewayUrl = "";
+let animationUri = "";
+let animationGatewayUrl = "";
+let metadataUri = "";
+let metadataBaseUri = "";
+let ownerAddress = null;
+let lastMintedTokenId = null;
 
 const ensureChain = async (provider) => {
   if (!config.chainId) return;
@@ -420,12 +444,14 @@ const connectWallet = async () => {
       metadataFrozen,
       useIpfsMetadata,
       ipfsBaseUri,
+      ownerAddress,
     ] = await Promise.all([
       contract.mintPriceWei(),
       contract.mintPaused(),
       contract.metadataFrozen(),
       contract.useIpfsMetadata(),
       contract.ipfsBaseUri(),
+      contract.owner(),
     ]);
     if (priceEl) {
       priceEl.textContent = `${window.ethers.formatEther(mintPriceWei)} ETH`;
@@ -445,6 +471,10 @@ const connectWallet = async () => {
     }
     const address = await signer.getAddress();
     setWalletStatus(`Connected: ${formatAddress(address)}`);
+    if (pinMetadataButton) {
+      const isOwner = ownerAddress && ownerAddress.toLowerCase() === address.toLowerCase();
+      pinMetadataButton.disabled = !isOwner || !lastMintedTokenId;
+    }
     setMintStatus("Wallet connected. Ready to mint.");
   } catch (err) {
     setMintStatus(formatStatusError(err, "Wallet connection failed."));
@@ -468,6 +498,7 @@ const signMintSummary = async () => {
       { name: "packedHash", type: "bytes32" },
       { name: "mintPriceWei", type: "uint256" },
       { name: "rasterUri", type: "string" },
+      { name: "animationUri", type: "string" },
       { name: "contract", type: "address" },
       { name: "chainId", type: "uint256" },
       { name: "timestamp", type: "uint256" },
@@ -477,6 +508,7 @@ const signMintSummary = async () => {
     packedHash: ethers.keccak256(packedHex),
     mintPriceWei: mintPriceWei ? mintPriceWei.toString() : "0",
     rasterUri: rasterUri || "",
+    animationUri: animationUri || "",
     contract: config.contractAddress,
     chainId: Number(config.chainId),
     timestamp: Math.floor(Date.now() / 1000),
@@ -504,9 +536,14 @@ const submitMint = async () => {
   let txUrl = "";
   try {
     setMintStatus("Submitting mint transaction...");
-    const tx = rasterUri
-      ? await contract.mintWithImage(packed, rasterUri, { value: mintPriceWei })
-      : await contract.mint(packed, { value: mintPriceWei });
+    let tx;
+    if (rasterUri && animationUri) {
+      tx = await contract.mintWithMedia(packed, rasterUri, animationUri, { value: mintPriceWei });
+    } else if (rasterUri) {
+      tx = await contract.mintWithImage(packed, rasterUri, { value: mintPriceWei });
+    } else {
+      tx = await contract.mint(packed, { value: mintPriceWei });
+    }
     txHash = tx.hash;
     if (config.blockExplorerUrl) {
       const base = config.blockExplorerUrl.replace(/\/$/, "");
@@ -535,6 +572,12 @@ const submitMint = async () => {
       .find((parsed) => parsed && parsed.name === "Transfer");
     if (transfer) {
       const tokenId = transfer.args.tokenId.toString();
+      lastMintedTokenId = tokenId;
+      if (pinMetadataButton && ownerAddress && signer) {
+        const signerAddress = await signer.getAddress();
+        const isOwner = ownerAddress.toLowerCase() === signerAddress.toLowerCase();
+        pinMetadataButton.disabled = !isOwner;
+      }
       setMintStatus(`Minted token #${tokenId}.`);
       updateCelebration({
         title: "Mint Confirmed",
@@ -603,6 +646,7 @@ const ensurePinnedRaster = async () => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      kind: "png",
       dataUrl,
       fileName: `sculpture-${hash ? hash.slice(2, 10) : Date.now()}.png`,
     }),
@@ -612,6 +656,7 @@ const ensurePinnedRaster = async () => {
     throw new Error(json?.error || "Pinning failed.");
   }
   rasterUri = json.ipfsUri || "";
+  rasterGatewayUrl = json.gatewayUrl || "";
   if (summaryRasterEl) {
     summaryRasterEl.textContent = formatShort(rasterUri);
   }
@@ -619,6 +664,128 @@ const ensurePinnedRaster = async () => {
     summaryNoteEl.textContent = `Pinned: ${formatShort(json.gatewayUrl)}`;
   }
   return rasterUri;
+};
+
+const ensurePinnedAnimation = async () => {
+  if (animationUri) {
+    return animationUri;
+  }
+  if (!pinningEndpoint) {
+    throw new Error("Pinning endpoint is not configured.");
+  }
+  if (!packed) {
+    throw new Error("Missing packed state.");
+  }
+  const packedHex = normalizePackedHex(packed);
+  const hash = window.ethers ? window.ethers.keccak256(packedHex) : "";
+  const svg = renderSvgFromPacked(packed);
+  setModalStatus("Pinning SVG to IPFS...");
+  const response = await fetch(pinningEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "svg",
+      svg,
+      fileName: `sculpture-${hash ? hash.slice(2, 10) : Date.now()}.svg`,
+    }),
+  });
+  const json = await response.json();
+  if (!response.ok) {
+    throw new Error(json?.error || "SVG pinning failed.");
+  }
+  animationUri = json.ipfsUri || "";
+  animationGatewayUrl = json.gatewayUrl || "";
+  if (summaryAnimationEl) {
+    summaryAnimationEl.textContent = formatShort(animationUri);
+  }
+  return animationUri;
+};
+
+const decodeTokenUriJson = (tokenUri) => {
+  if (!tokenUri) return null;
+  const base64Prefix = "data:application/json;base64,";
+  const utf8Prefix = "data:application/json;utf8,";
+  if (tokenUri.startsWith(base64Prefix)) {
+    const raw = tokenUri.slice(base64Prefix.length);
+    return JSON.parse(atob(raw));
+  }
+  if (tokenUri.startsWith(utf8Prefix)) {
+    const raw = tokenUri.slice(utf8Prefix.length);
+    return JSON.parse(decodeURIComponent(raw));
+  }
+  return null;
+};
+
+const ensurePinnedMetadata = async (tokenId) => {
+  if (!contract || !signer) {
+    throw new Error("Connect a wallet to continue.");
+  }
+  if (!ownerAddress) {
+    throw new Error("Owner address unavailable.");
+  }
+  const signerAddress = await signer.getAddress();
+  if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+    throw new Error("Only the contract owner can toggle metadata.");
+  }
+  if (metadataFrozen) {
+    throw new Error("Metadata has been permanently frozen.");
+  }
+  if (!pinningEndpoint) {
+    throw new Error("Pinning endpoint is not configured.");
+  }
+  if (!tokenId) {
+    throw new Error("Token ID is required to pin metadata.");
+  }
+  if (!packed) {
+    throw new Error("Missing packed state.");
+  }
+  const svg = renderSvgFromPacked(packed);
+  const tokenUri = await contract.tokenURI(tokenId);
+  const baseJson = decodeTokenUriJson(tokenUri);
+  if (!baseJson) {
+    throw new Error("Unable to decode on-chain tokenURI.");
+  }
+  const metadata = {
+    ...baseJson,
+    image: rasterGatewayUrl || rasterUri || baseJson.image,
+    animation_url: animationGatewayUrl || animationUri || baseJson.animation_url,
+    image_raster: rasterUri || baseJson.image_raster || "",
+    image_data: svg,
+  };
+  setModalStatus("Pinning metadata JSON to IPFS...");
+  const response = await fetch(pinningEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "json",
+      metadata,
+      fileName: String(tokenId),
+      wrapWithDirectory: true,
+    }),
+  });
+  const json = await response.json();
+  if (!response.ok) {
+    throw new Error(json?.error || "Metadata pinning failed.");
+  }
+  metadataUri = json.ipfsUri || "";
+  metadataBaseUri = json.baseUri || "";
+  if (summaryMetadataEl) {
+    summaryMetadataEl.textContent = formatShort(metadataUri);
+  }
+  if (!metadataBaseUri) {
+    throw new Error("Metadata base URI missing.");
+  }
+  setModalStatus("Updating contract metadata settings...");
+  const baseTx = await contract.setIpfsBaseUri(metadataBaseUri);
+  await baseTx.wait();
+  const toggleTx = await contract.setUseIpfsMetadata(true);
+  await toggleTx.wait();
+  useIpfsMetadata = true;
+  ipfsBaseUri = metadataBaseUri;
+  if (metadataStatusEl) {
+    metadataStatusEl.textContent = metadataFrozen ? "IPFS (frozen)" : "IPFS (mutable)";
+  }
+  return metadataBaseUri;
 };
 
 if (connectButton) {
@@ -657,6 +824,7 @@ if (mintConfirmButton) {
   mintConfirmButton.addEventListener("click", async () => {
     try {
       await ensurePinnedRaster();
+      await ensurePinnedAnimation();
       await signMintSummary();
       await submitMint();
     } catch (err) {
@@ -664,6 +832,23 @@ if (mintConfirmButton) {
       if (summaryNoteEl) {
         summaryNoteEl.textContent = "Resolve the error above to continue.";
       }
+    }
+  });
+}
+
+if (pinMetadataButton) {
+  pinMetadataButton.addEventListener("click", async () => {
+    try {
+      if (!lastMintedTokenId) {
+        setMintStatus("Mint a token first to pin metadata.");
+        return;
+      }
+      await ensurePinnedRaster();
+      await ensurePinnedAnimation();
+      await ensurePinnedMetadata(lastMintedTokenId);
+      setMintStatus("Metadata pinned to IPFS and enabled.");
+    } catch (err) {
+      setMintStatus(formatStatusError(err, "Metadata pinning failed."));
     }
   });
 }

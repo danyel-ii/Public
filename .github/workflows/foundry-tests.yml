@@ -61,9 +61,6 @@ jobs:
 
   sepolia-fork-tests:
     runs-on: ubuntu-latest
-    env:
-      SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
-    if: ${{ env.SEPOLIA_RPC_URL != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,4 +71,11 @@ jobs:
           version: stable
 
       - name: Run Sepolia fork tests
+        if: ${{ secrets.SEPOLIA_RPC_URL != '' }}
+        env:
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
         run: forge test --fork-url "$SEPOLIA_RPC_URL"
+
+      - name: Skip Sepolia fork tests
+        if: ${{ secrets.SEPOLIA_RPC_URL == '' }}
+        run: echo "SEPOLIA_RPC_URL is not set; skipping fork tests."

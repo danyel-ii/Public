@@ -22,6 +22,7 @@ contract SculptureMint {
   error MintPaused();
   error MintPriceNotMet(uint256 required, uint256 provided);
   error EmptyAnimationUri();
+  error EmptyMetadataUri();
   error EmptyRasterUri();
   error NotApproved();
   error NotMinted(uint256 tokenId);
@@ -38,6 +39,7 @@ contract SculptureMint {
   event IpfsBaseUriUpdated(string previousUri, string newUri);
   event IpfsMetadataToggled(bool enabled);
   event AnimationUriStored(uint256 indexed tokenId, string uri);
+  event MetadataUriStored(uint256 indexed tokenId, string uri);
   event MetadataFrozenSet();
   event MintPausedSet(bool paused);
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -68,6 +70,7 @@ contract SculptureMint {
   mapping(uint256 => bytes) private _packedState;
   mapping(uint256 => string) private _rasterUri;
   mapping(uint256 => string) private _animationUri;
+  mapping(uint256 => string) private _metadataUri;
 
   uint256 private constant LAYER_COUNT = 3;
   uint256 private constant PARAM_COUNT = 7;
@@ -207,7 +210,7 @@ contract SculptureMint {
   }
 
   function mint(bytes calldata packed) external payable nonReentrant returns (uint256 tokenId) {
-    tokenId = _mintPacked(packed, "", "");
+    tokenId = _mintPacked(packed, "", "", "");
   }
 
   function mintWithImage(
@@ -217,7 +220,7 @@ contract SculptureMint {
     if (bytes(rasterUri).length == 0) {
       revert EmptyRasterUri();
     }
-    tokenId = _mintPacked(packed, rasterUri, "");
+    tokenId = _mintPacked(packed, rasterUri, "", "");
   }
 
   function mintWithMedia(
@@ -231,13 +234,32 @@ contract SculptureMint {
     if (bytes(animationUri).length == 0) {
       revert EmptyAnimationUri();
     }
-    tokenId = _mintPacked(packed, rasterUri, animationUri);
+    tokenId = _mintPacked(packed, rasterUri, animationUri, "");
+  }
+
+  function mintWithMetadata(
+    bytes calldata packed,
+    string calldata rasterUri,
+    string calldata animationUri,
+    string calldata metadataUri
+  ) external payable nonReentrant returns (uint256 tokenId) {
+    if (bytes(rasterUri).length == 0) {
+      revert EmptyRasterUri();
+    }
+    if (bytes(animationUri).length == 0) {
+      revert EmptyAnimationUri();
+    }
+    if (bytes(metadataUri).length == 0) {
+      revert EmptyMetadataUri();
+    }
+    tokenId = _mintPacked(packed, rasterUri, animationUri, metadataUri);
   }
 
   function _mintPacked(
     bytes calldata packed,
     string memory rasterUri,
-    string memory animationUri
+    string memory animationUri,
+    string memory metadataUri
   ) internal returns (uint256 tokenId) {
     if (mintPaused) {
       revert MintPaused();
@@ -255,6 +277,10 @@ contract SculptureMint {
     if (bytes(animationUri).length > 0) {
       _animationUri[tokenId] = animationUri;
       emit AnimationUriStored(tokenId, animationUri);
+    }
+    if (bytes(metadataUri).length > 0) {
+      _metadataUri[tokenId] = metadataUri;
+      emit MetadataUriStored(tokenId, metadataUri);
     }
     totalSupply = tokenId;
     _safeMint(msg.sender, tokenId, "");
@@ -282,54 +308,45 @@ contract SculptureMint {
     return _animationUri[tokenId];
   }
 
+  function getMetadataUri(uint256 tokenId) external view returns (string memory) {
+    if (!_exists(tokenId)) {
+      revert NotMinted(tokenId);
+    }
+    return _metadataUri[tokenId];
+  }
+
   function tokenURI(uint256 tokenId) public view returns (string memory) {
     if (!_exists(tokenId)) {
       revert NotMinted(tokenId);
+    }
+    string memory metadataUri = _metadataUri[tokenId];
+    if (bytes(metadataUri).length > 0) {
+      return resolveGateway(metadataUri);
     }
     if (useIpfsMetadata && bytes(ipfsBaseUri).length > 0) {
       return string(abi.encodePacked(ipfsBaseUri, toString(tokenId)));
     }
     bytes memory packed = _packedState[tokenId];
     SculptureRenderer.State memory state = SculptureRenderer.decode(packed);
-    string memory preview = SculptureRenderer.renderSvgPreview(state);
-    string memory fullSvg = SculptureRenderer.renderSvg(state);
-    string memory svgForMetadata = strictSvg ? preview : fullSvg;
-    string memory rasterUri = _rasterUri[tokenId];
-    string memory animationUri = _animationUri[tokenId];
-    string memory image = bytes(rasterUri).length > 0
-      ? resolveGateway(rasterUri)
-      : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
-    string memory animationUrl = bytes(animationUri).length > 0
-      ? resolveGateway(animationUri)
-      : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svgForMetadata))));
-    string memory attrs = buildAttributes(state);
-    string memory json = string(
-      abi.encodePacked(
-        "{",
-        "\"name\":\"sculpture",
-        toString(tokenId),
-        "\",",
-        "\"image\":\"",
-        image,
-        "\",",
-        "\"image_raster\":\"",
-        rasterUri,
-        "\",",
-        "\"image_data\":\"",
-        svgForMetadata,
-        "\",",
-        "\"animation_url\":\"",
-        animationUrl,
-        "\",",
-        "\"attributes\":",
-        attrs,
-        "}"
-      )
+    string memory json = buildTokenJson(
+      state,
+      _rasterUri[tokenId],
+      _animationUri[tokenId],
+      toString(tokenId)
     );
 
     return string(
       abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json)))
     );
+  }
+
+  function previewMetadata(
+    bytes calldata packed,
+    string calldata rasterUri,
+    string calldata animationUri
+  ) external view returns (string memory) {
+    SculptureRenderer.State memory state = SculptureRenderer.decode(packed);
+    return buildTokenJson(state, rasterUri, animationUri, "preview");
   }
 
   function setMintPriceWei(uint256 newPriceWei) external onlyOwner {
@@ -615,6 +632,47 @@ contract SculptureMint {
     }
 
     return string(abi.encodePacked(attrs, "]"));
+  }
+
+  function buildTokenJson(
+    SculptureRenderer.State memory state,
+    string memory rasterUri,
+    string memory animationUri,
+    string memory nameSuffix
+  ) internal view returns (string memory) {
+    string memory preview = SculptureRenderer.renderSvgPreview(state);
+    string memory fullSvg = SculptureRenderer.renderSvg(state);
+    string memory svgForMetadata = strictSvg ? preview : fullSvg;
+    string memory image = bytes(rasterUri).length > 0
+      ? resolveGateway(rasterUri)
+      : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
+    string memory animationUrl = bytes(animationUri).length > 0
+      ? resolveGateway(animationUri)
+      : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svgForMetadata))));
+    string memory attrs = buildAttributes(state);
+    return string(
+      abi.encodePacked(
+        "{",
+        "\"name\":\"sculpture",
+        nameSuffix,
+        "\",",
+        "\"image\":\"",
+        image,
+        "\",",
+        "\"image_raster\":\"",
+        rasterUri,
+        "\",",
+        "\"image_data\":\"",
+        svgForMetadata,
+        "\",",
+        "\"animation_url\":\"",
+        animationUrl,
+        "\",",
+        "\"attributes\":",
+        attrs,
+        "}"
+      )
+    );
   }
 
   function layerValues(

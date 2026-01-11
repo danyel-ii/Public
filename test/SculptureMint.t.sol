@@ -132,6 +132,15 @@ contract SculptureMintTest {
     assert(keccak256(bytes(storedAnimation)) == keccak256(bytes(animation)));
   }
 
+  function testMintWithMetadataStoresUri() public {
+    string memory raster = "ipfs://example-cid/sculpture.png";
+    string memory animation = "ipfs://example-cid/sculpture.svg";
+    string memory metadata = "ipfs://example-cid/metadata.json";
+    mint.mintWithMetadata{ value: PRICE }(PACKED_STATE, raster, animation, metadata);
+    string memory storedMetadata = mint.getMetadataUri(1);
+    assert(keccak256(bytes(storedMetadata)) == keccak256(bytes(metadata)));
+  }
+
   function testMintWithImageRejectsEmptyUri() public {
     (bool ok, bytes memory data) = address(mint).call{ value: PRICE }(
       abi.encodeWithSelector(mint.mintWithImage.selector, PACKED_STATE, "")
@@ -146,6 +155,20 @@ contract SculptureMintTest {
     );
     assert(!ok);
     assert(_revertSelector(data) == SculptureMint.EmptyAnimationUri.selector);
+  }
+
+  function testMintWithMetadataRejectsEmptyMetadataUri() public {
+    (bool ok, bytes memory data) = address(mint).call{ value: PRICE }(
+      abi.encodeWithSelector(
+        mint.mintWithMetadata.selector,
+        PACKED_STATE,
+        "ipfs://x",
+        "ipfs://y",
+        ""
+      )
+    );
+    assert(!ok);
+    assert(_revertSelector(data) == SculptureMint.EmptyMetadataUri.selector);
   }
 
   function testSetStrictSvgRejectsNonOwner() public {
@@ -215,6 +238,15 @@ contract SculptureMintTest {
     mint.setUseIpfsMetadata(true);
     string memory uri = mint.tokenURI(1);
     assert(keccak256(bytes(uri)) == keccak256(bytes("ipfs://example/1")));
+  }
+
+  function testTokenUriUsesMetadataUriWhenSet() public {
+    string memory raster = "ipfs://example-cid/sculpture.png";
+    string memory animation = "ipfs://example-cid/sculpture.svg";
+    string memory metadata = "ipfs://example-cid/metadata.json";
+    mint.mintWithMetadata{ value: PRICE }(PACKED_STATE, raster, animation, metadata);
+    string memory uri = mint.tokenURI(1);
+    assert(_startsWith(uri, "https://gateway.pinata.cloud/ipfs/"));
   }
 
   function testGetApprovedRevertsIfNotMinted() public {

@@ -89,6 +89,26 @@ const prefersWalletConnect =
   window.matchMedia &&
   window.matchMedia("(pointer: coarse)").matches;
 
+const getFarcasterProvider = () => {
+  if (window.farcaster && window.farcaster.ethereum) {
+    return window.farcaster.ethereum;
+  }
+  if (window.farcaster && window.farcaster.provider) {
+    return window.farcaster.provider;
+  }
+  const injected = window.ethereum;
+  if (!injected) return null;
+  if (injected.isFarcaster || injected.isWarpcast) {
+    return injected;
+  }
+  if (Array.isArray(injected.providers)) {
+    return injected.providers.find(
+      (provider) => provider.isFarcaster || provider.isWarpcast
+    );
+  }
+  return null;
+};
+
 const pickInjectedProvider = () => {
   const injected = window.ethereum;
   if (!injected) return null;
@@ -411,11 +431,35 @@ const ensureChain = async (provider) => {
   }
 };
 
+let walletConnectLoader = null;
+const loadWalletConnectProvider = async () => {
+  if (window.EthereumProvider) {
+    return window.EthereumProvider;
+  }
+  if (walletConnectLoader) {
+    return walletConnectLoader;
+  }
+  walletConnectLoader = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js";
+    script.async = true;
+    script.onload = () => resolve(window.EthereumProvider || null);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+  return walletConnectLoader;
+};
+
 const initWalletConnect = async () => {
-  if (!config.walletConnectProjectId || !window.EthereumProvider) {
+  if (!config.walletConnectProjectId) {
     return null;
   }
-  const wcProvider = await window.EthereumProvider.init({
+  const EthereumProvider = await loadWalletConnectProvider();
+  if (!EthereumProvider) {
+    return null;
+  }
+  const wcProvider = await EthereumProvider.init({
     projectId: config.walletConnectProjectId,
     chains: [config.chainId || 8453],
     showQrModal: true,
@@ -430,6 +474,10 @@ const initWalletConnect = async () => {
 };
 
 const getWalletProvider = async () => {
+  const farcasterProvider = getFarcasterProvider();
+  if (farcasterProvider) {
+    return { provider: farcasterProvider, type: "farcaster" };
+  }
   if (prefersWalletConnect) {
     const wcProvider = await initWalletConnect();
     if (wcProvider) return { provider: wcProvider, type: "walletconnect" };

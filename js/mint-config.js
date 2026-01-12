@@ -1,7 +1,7 @@
 (() => {
   const configs = {
     sepolia: {
-      contractAddress: "0x9f2174de25a60c2277a5efd0ad3ea50c11d74f7b",
+      contractAddress: "0xdd8969f3711909fd26c1a8267719a4457b4c8398",
       chainId: 84532,
       chainName: "Base Sepolia",
       rpcUrl: "https://sepolia.base.org",

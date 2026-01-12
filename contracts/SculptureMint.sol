@@ -645,14 +645,21 @@ contract SculptureMint {
     string memory svgForMetadata = strictSvg ? preview : fullSvg;
     string memory imageGateway = bytes(rasterUri).length > 0 ? resolveGateway(rasterUri) : "";
     string memory image = bytes(rasterUri).length > 0
-      ? rasterUri
+      ? imageGateway
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
     string memory imageUrlEntry = bytes(imageGateway).length > 0
       ? string(abi.encodePacked("\"image_url\":\"", imageGateway, "\","))
       : "";
+    string memory imageIpfsEntry = bytes(rasterUri).length > 0
+      ? string(abi.encodePacked("\"image_ipfs\":\"", rasterUri, "\","))
+      : "";
+    string memory animationGateway = bytes(animationUri).length > 0 ? resolveGateway(animationUri) : "";
     string memory animationUrl = bytes(animationUri).length > 0
-      ? animationUri
+      ? animationGateway
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svgForMetadata))));
+    string memory animationIpfsEntry = bytes(animationUri).length > 0
+      ? string(abi.encodePacked("\"animation_ipfs\":\"", animationUri, "\","))
+      : "";
     string memory attrs = buildAttributes(state);
     return string(
       abi.encodePacked(
@@ -664,12 +671,14 @@ contract SculptureMint {
         image,
         "\",",
         imageUrlEntry,
+        imageIpfsEntry,
         "\"image_raster\":\"",
         rasterUri,
         "\",",
         "\"image_data\":\"",
         svgForMetadata,
         "\",",
+        animationIpfsEntry,
         "\"animation_url\":\"",
         animationUrl,
         "\",",

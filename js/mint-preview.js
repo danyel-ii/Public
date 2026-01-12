@@ -150,10 +150,10 @@ const openMintModal = () => {
     summaryAnimationEl.textContent = animationUri ? formatShort(animationUri) : "Pending";
   }
   if (summaryMetadataEl) {
-    summaryMetadataEl.textContent = metadataUri ? formatShort(metadataUri) : "Pending";
+    summaryMetadataEl.textContent = metadataUri ? formatShort(metadataUri) : "On-chain";
   }
   if (summaryNoteEl) {
-    summaryNoteEl.textContent = "Pinning will run before you sign the Mint Summary.";
+    summaryNoteEl.textContent = "Images will be pinned before you sign. Metadata stays on-chain.";
   }
   setModalStatus("");
   mintModalEl.classList.add("is-open");
@@ -772,7 +772,6 @@ if (mintConfirmButton) {
     try {
       await ensurePinnedRaster();
       await ensurePinnedAnimation();
-      await ensurePinnedMetadata();
       await signMintSummary();
       await submitMint();
     } catch (err) {

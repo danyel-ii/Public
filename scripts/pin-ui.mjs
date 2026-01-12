@@ -2,7 +2,12 @@ import fs from "fs";
 import path from "path";
 
 const PINATA_ENDPOINT = "https://api.pinata.cloud/pinning/pinFileToIPFS";
-const UI_ROOT_NAME = "paperclips-ui";
+const rootNameRaw = process.env.PIN_UI_ROOT_NAME;
+const UI_ROOT_NAME = typeof rootNameRaw === "string"
+  ? rootNameRaw.trim()
+  : "paperclips-ui";
+const uiRootPrefix = UI_ROOT_NAME ? `${UI_ROOT_NAME.replace(/\/+$/, "")}/` : "";
+const uiRootLabel = UI_ROOT_NAME || "paperclips-root";
 
 const root = process.cwd();
 const jwt = process.env.PINATA_JWT;
@@ -89,14 +94,14 @@ const form = new FormData();
 for (const file of files) {
   const buffer = fs.readFileSync(file.abs);
   const mime = detectMime(file.abs);
-  const filePath = `${UI_ROOT_NAME}/${file.rel.replace(/\\/g, "/")}`;
+  const filePath = `${uiRootPrefix}${file.rel.replace(/\\/g, "/")}`;
   form.append("file", toBlob(buffer, mime), filePath);
 }
 
 form.append(
   "pinataMetadata",
   JSON.stringify({
-    name: UI_ROOT_NAME,
+    name: uiRootLabel,
     keyvalues: { collection: "paperclips", type: "ui" },
   })
 );
@@ -119,6 +124,9 @@ if (!response.ok) {
 const cid = json.IpfsHash;
 const gatewayBase = normalizeGateway(gatewayBaseRaw);
 console.log(`CID: ${cid}`);
-console.log(`${gatewayBase}${cid}/${UI_ROOT_NAME}/index.html`);
-console.log(`https://dweb.link/ipfs/${cid}/${UI_ROOT_NAME}/index.html`);
-console.log(`https://w3s.link/ipfs/${cid}/${UI_ROOT_NAME}/index.html`);
+const indexPath = UI_ROOT_NAME
+  ? `${UI_ROOT_NAME}/index.html`
+  : "index.html";
+console.log(`${gatewayBase}${cid}/${indexPath}`);
+console.log(`https://dweb.link/ipfs/${cid}/${indexPath}`);
+console.log(`https://w3s.link/ipfs/${cid}/${indexPath}`);

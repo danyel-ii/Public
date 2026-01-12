@@ -15,7 +15,7 @@
       walletConnectProjectId: "8640f2c711088eef523c7fd42d0cd18f",
     },
     base: {
-      contractAddress: "0x0000000000000000000000000000000000000000",
+      contractAddress: "0xd20E49e96df454174083baC7BAe8ccb483B3489e",
       chainId: 8453,
       chainName: "Base",
       rpcUrl: "https://mainnet.base.org",

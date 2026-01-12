@@ -321,7 +321,7 @@ contract SculptureMint {
     }
     string memory metadataUri = _metadataUri[tokenId];
     if (bytes(metadataUri).length > 0) {
-      return resolveGateway(metadataUri);
+      return metadataUri;
     }
     if (useIpfsMetadata && bytes(ipfsBaseUri).length > 0) {
       return string.concat(ipfsBaseUri, toString(tokenId));
@@ -644,14 +644,14 @@ contract SculptureMint {
     string memory fullSvg = SculptureRenderer.renderSvg(state);
     string memory svgForMetadata = strictSvg ? preview : fullSvg;
     string memory imageGateway = bytes(rasterUri).length > 0 ? resolveGateway(rasterUri) : "";
-    string memory image = bytes(imageGateway).length > 0
-      ? imageGateway
+    string memory image = bytes(rasterUri).length > 0
+      ? rasterUri
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
     string memory imageUrlEntry = bytes(imageGateway).length > 0
       ? string(abi.encodePacked("\"image_url\":\"", imageGateway, "\","))
       : "";
     string memory animationUrl = bytes(animationUri).length > 0
-      ? resolveGateway(animationUri)
+      ? animationUri
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svgForMetadata))));
     string memory attrs = buildAttributes(state);
     return string(

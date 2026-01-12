@@ -102,6 +102,12 @@
         text-transform: uppercase;
         text-decoration: none;
         cursor: pointer;
+        transition: transform 120ms ease, filter 120ms ease;
+      }
+      button:active,
+      a.button:active {
+        transform: translateY(1px) scale(0.98);
+        filter: brightness(0.92);
       }
       textarea {
         margin-top: 16px;

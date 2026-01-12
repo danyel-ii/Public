@@ -84,6 +84,11 @@ const WALLET_METADATA = {
   icons: [],
 };
 
+const prefersWalletConnect =
+  config.walletConnectProjectId &&
+  window.matchMedia &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 const pickInjectedProvider = () => {
   const injected = window.ethereum;
   if (!injected) return null;
@@ -416,11 +421,19 @@ const initWalletConnect = async () => {
     showQrModal: true,
     metadata: WALLET_METADATA,
   });
-  await wcProvider.enable();
+  if (typeof wcProvider.connect === "function") {
+    await wcProvider.connect();
+  } else if (typeof wcProvider.enable === "function") {
+    await wcProvider.enable();
+  }
   return wcProvider;
 };
 
 const getWalletProvider = async () => {
+  if (prefersWalletConnect) {
+    const wcProvider = await initWalletConnect();
+    if (wcProvider) return { provider: wcProvider, type: "walletconnect" };
+  }
   const injected = pickInjectedProvider();
   if (injected) return { provider: injected, type: "injected" };
   const wcProvider = await initWalletConnect();

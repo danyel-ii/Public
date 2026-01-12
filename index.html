@@ -312,6 +312,17 @@
         text-decoration: none;
         display: inline-flex;
       }
+      button,
+      .cta,
+      .nav-card .pill-link {
+        transition: transform 120ms ease, filter 120ms ease;
+      }
+      button:active,
+      .cta:active,
+      .nav-card .pill-link:active {
+        transform: translateY(1px) scale(0.98);
+        filter: brightness(0.92);
+      }
 
       .hero-image {
         display: block;

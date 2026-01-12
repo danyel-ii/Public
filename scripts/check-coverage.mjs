@@ -11,11 +11,18 @@ if (!fs.existsSync(resolved)) {
 }
 
 const content = fs.readFileSync(resolved, "utf8");
+const ignorePrefixes = ["script/", "scripts/", "test/"];
 let total = 0;
 let covered = 0;
+let includeFile = true;
 
 for (const line of content.split("\n")) {
-  if (!line.startsWith("DA:")) continue;
+  if (line.startsWith("SF:")) {
+    const filePath = line.slice(3);
+    includeFile = !ignorePrefixes.some((prefix) => filePath.startsWith(prefix));
+    continue;
+  }
+  if (!includeFile || !line.startsWith("DA:")) continue;
   const parts = line.slice(3).split(",");
   if (parts.length < 2) continue;
   total += 1;

@@ -326,7 +326,7 @@ contract SculptureMint {
     }
     string memory metadataUri = _metadataUri[tokenId];
     if (bytes(metadataUri).length > 0) {
-      return metadataUri;
+      return resolveGateway(metadataUri);
     }
     if (useIpfsMetadata && bytes(ipfsBaseUri).length > 0) {
       return string.concat(ipfsBaseUri, toString(tokenId));
@@ -666,32 +666,20 @@ contract SculptureMint {
       ? string(abi.encodePacked("\"animation_ipfs\":\"", animationUri, "\","))
       : "";
     string memory attrs = buildAttributes(state);
-    return string(
-      abi.encodePacked(
-        "{",
-        "\"name\":\"sculpture",
-        nameSuffix,
-        "\",",
-        "\"image\":\"",
-        image,
-        "\",",
-        imageUrlEntry,
-        imageIpfsEntry,
-        "\"image_raster\":\"",
-        rasterUri,
-        "\",",
-        "\"image_data\":\"",
-        svgForMetadata,
-        "\",",
-        animationIpfsEntry,
-        "\"animation_url\":\"",
-        animationUrl,
-        "\",",
-        "\"attributes\":",
-        attrs,
-        "}"
-      )
+    string memory json = string.concat(
+      "{",
+      "\"name\":\"sculpture",
+      nameSuffix,
+      "\","
     );
+    json = string.concat(json, "\"image\":\"", image, "\",");
+    json = string.concat(json, imageUrlEntry, imageIpfsEntry);
+    json = string.concat(json, "\"image_raster\":\"", rasterUri, "\",");
+    json = string.concat(json, "\"image_data\":\"", svgForMetadata, "\",");
+    json = string.concat(json, animationIpfsEntry);
+    json = string.concat(json, "\"animation_url\":\"", animationUrl, "\",");
+    json = string.concat(json, "\"attributes\":", attrs, "}");
+    return json;
   }
 
   function layerValues(
@@ -772,7 +760,7 @@ contract SculptureMint {
     string memory base = bytes(gatewayBaseUri).length == 0
       ? DEFAULT_IPFS_GATEWAY
       : gatewayBaseUri;
-    return string(abi.encodePacked(base, suffix));
+    return string.concat(base, string(suffix));
   }
 
   function padLeft(uint256 value, uint256 width) internal pure returns (string memory) {

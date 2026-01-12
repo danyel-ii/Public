@@ -77,6 +77,13 @@ const setModalStatus = (message) => {
   }
 };
 
+const WALLET_METADATA = {
+  name: "PaperClips",
+  description: "Paper clip sculpture mint",
+  url: window.location.origin,
+  icons: [],
+};
+
 const pickInjectedProvider = () => {
   const injected = window.ethereum;
   if (!injected) return null;
@@ -399,19 +406,26 @@ const ensureChain = async (provider) => {
   }
 };
 
+const initWalletConnect = async () => {
+  if (!config.walletConnectProjectId || !window.EthereumProvider) {
+    return null;
+  }
+  const wcProvider = await window.EthereumProvider.init({
+    projectId: config.walletConnectProjectId,
+    chains: [config.chainId || 8453],
+    showQrModal: true,
+    metadata: WALLET_METADATA,
+  });
+  await wcProvider.enable();
+  return wcProvider;
+};
+
 const getWalletProvider = async () => {
   const injected = pickInjectedProvider();
-  if (injected) return injected;
-  if (config.walletConnectProjectId && window.EthereumProvider) {
-    const wcProvider = await window.EthereumProvider.init({
-      projectId: config.walletConnectProjectId,
-      chains: [config.chainId || 8453],
-      showQrModal: true,
-    });
-    await wcProvider.enable();
-    return wcProvider;
-  }
-  return null;
+  if (injected) return { provider: injected, type: "injected" };
+  const wcProvider = await initWalletConnect();
+  if (wcProvider) return { provider: wcProvider, type: "walletconnect" };
+  return { provider: null, type: "none" };
 };
 
 const connectWallet = async () => {
@@ -424,12 +438,27 @@ const connectWallet = async () => {
     return;
   }
   try {
-    walletProvider = await getWalletProvider();
-    if (!walletProvider) {
+    setMintStatus("Opening wallet connection...");
+    let walletInfo = await getWalletProvider();
+    if (!walletInfo.provider) {
       setMintStatus("No wallet found. Install MetaMask or enable WalletConnect.");
       return;
     }
-    await walletProvider.request({ method: "eth_requestAccounts" });
+    try {
+      await walletInfo.provider.request({ method: "eth_requestAccounts" });
+    } catch (err) {
+      if (walletInfo.type === "injected") {
+        const wcProvider = await initWalletConnect();
+        if (!wcProvider) {
+          throw err;
+        }
+        walletInfo = { provider: wcProvider, type: "walletconnect" };
+        await walletInfo.provider.request({ method: "eth_requestAccounts" });
+      } else {
+        throw err;
+      }
+    }
+    walletProvider = walletInfo.provider;
     await ensureChain(walletProvider);
     const browserProvider = new window.ethers.BrowserProvider(walletProvider);
     signer = await browserProvider.getSigner();

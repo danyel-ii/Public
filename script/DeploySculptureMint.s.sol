@@ -32,7 +32,7 @@ contract DeploySculptureMint {
       revert MissingFeeRecipient();
     }
 
-    uint256 mintPriceWei = 0.00064 ether;
+    uint256 mintPriceWei = 0.00036 ether;
     string memory gatewayBaseUri = normalizeGateway(
       vm.envOr("PINATA_GATEWAY_URL", string(""))
     );

@@ -159,7 +159,13 @@ const handler = async (req, res) => {
     if (!kvUrl || !kvToken) {
       return { ok: false, error: "KV is not configured." };
     }
-    const key = process.env.PIN_LOG_KEY || "paperclips:pins";
+    const fallbackPrefix =
+      process.env.VERCEL_PROJECT_ID ||
+      process.env.VERCEL_GIT_REPO_SLUG ||
+      "PaperClips";
+    const prefix = String(fallbackPrefix || "PaperClips").trim().replace(/\s+/g, "-");
+    const key = process.env.PIN_LOG_KEY || `${prefix}:pinlog:entries`;
+    const cidsKey = process.env.PIN_LOG_CIDS_KEY || `${prefix}:pinlog:cids`;
     const response = await fetch(`${kvUrl}/lpush/${encodeURIComponent(key)}`, {
       method: "POST",
       headers: {
@@ -171,6 +177,18 @@ const handler = async (req, res) => {
     if (!response.ok) {
       const json = await response.json().catch(() => ({}));
       return { ok: false, error: json?.error || json?.message || "KV log failed." };
+    }
+    const cidsResponse = await fetch(`${kvUrl}/sadd/${encodeURIComponent(cidsKey)}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${kvToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([entry.cid]),
+    });
+    if (!cidsResponse.ok) {
+      const json = await cidsResponse.json().catch(() => ({}));
+      return { ok: false, error: json?.error || json?.message || "KV CID log failed." };
     }
     return { ok: true };
   };

@@ -40,9 +40,16 @@ const handler = async (req, res) => {
     return;
   }
 
-  const key = process.env.PIN_LOG_KEY || "paperclips:pins";
+  const fallbackPrefix =
+    process.env.VERCEL_PROJECT_ID ||
+    process.env.VERCEL_GIT_REPO_SLUG ||
+    "PaperClips";
+  const prefix = String(fallbackPrefix || "PaperClips").trim().replace(/\s+/g, "-");
+  const key = process.env.PIN_LOG_KEY || `${prefix}:pinlog:entries`;
+  const cidsKey = process.env.PIN_LOG_CIDS_KEY || `${prefix}:pinlog:cids`;
   const limitRaw = req.query?.limit || req.query?.n || "50";
   const limit = Math.max(1, Math.min(200, Number(limitRaw) || 50));
+  const includeCids = String(req.query?.includeCids || "").toLowerCase() === "true";
 
   try {
     const response = await fetch(
@@ -67,6 +74,20 @@ const handler = async (req, res) => {
         return { raw: item };
       }
     });
+    if (includeCids) {
+      const cidsResponse = await fetch(`${kvUrl}/smembers/${encodeURIComponent(cidsKey)}`, {
+        headers: {
+          Authorization: `Bearer ${kvToken}`,
+        },
+      });
+      const cidsJson = await cidsResponse.json().catch(() => ({}));
+      if (!cidsResponse.ok) {
+        sendJson(res, 500, { error: cidsJson?.error || cidsJson?.message || "KV CID read failed." });
+        return;
+      }
+      sendJson(res, 200, { entries, cids: cidsJson?.result || [] });
+      return;
+    }
     sendJson(res, 200, { entries });
   } catch (err) {
     sendJson(res, 500, { error: err?.message || "KV request failed." });
@@ -74,4 +95,3 @@ const handler = async (req, res) => {
 };
 
 module.exports = handler;
-

@@ -754,7 +754,7 @@ contract SculptureMint {
     return string(abi.encodePacked("-", toFixed(uint256(-value), scale, decimals)));
   }
 
-  function resolveGateway(string memory uri) internal pure returns (string memory) {
+  function resolveGateway(string memory uri) internal view returns (string memory) {
     bytes memory uriBytes = bytes(uri);
     bytes memory prefix = bytes("ipfs://");
     if (uriBytes.length < prefix.length) {

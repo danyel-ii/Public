@@ -17,6 +17,68 @@ const sendJson = (res, status, payload) => {
   res.end(JSON.stringify(payload));
 };
 
+const flattenList = (value) => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => flattenList(item));
+  }
+  return [value];
+};
+
+const normalizeEntries = (value) => {
+  const flattened = flattenList(value);
+  const entries = [];
+  for (const item of flattened) {
+    if (typeof item === "string") {
+      try {
+        const parsed = JSON.parse(item);
+        if (Array.isArray(parsed)) {
+          entries.push(...normalizeEntries(parsed));
+        } else if (parsed && typeof parsed === "object") {
+          entries.push(parsed);
+        } else {
+          entries.push({ raw: parsed });
+        }
+      } catch {
+        entries.push({ raw: item });
+      }
+    } else if (item && typeof item === "object") {
+      entries.push(item);
+    } else if (item !== undefined) {
+      entries.push({ raw: item });
+    }
+  }
+  return entries;
+};
+
+const normalizeCids = (value) => {
+  const flattened = flattenList(value);
+  const cids = [];
+  for (const item of flattened) {
+    if (item === undefined || item === null) continue;
+    if (typeof item === "string") {
+      try {
+        const parsed = JSON.parse(item);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((cid) => {
+            if (cid) cids.push(String(cid));
+          });
+        } else if (parsed) {
+          cids.push(String(parsed));
+        } else {
+          cids.push(item);
+        }
+      } catch {
+        cids.push(item);
+      }
+    } else if (Array.isArray(item)) {
+      item.forEach((cid) => cids.push(String(cid)));
+    } else {
+      cids.push(String(item));
+    }
+  }
+  return [...new Set(cids)];
+};
+
 const handler = async (req, res) => {
   allowOrigin(req, res);
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -66,14 +128,7 @@ const handler = async (req, res) => {
       return;
     }
     const rawEntries = Array.isArray(json?.result) ? json.result : [];
-    const entries = rawEntries.map((item) => {
-      if (typeof item !== "string") return item;
-      try {
-        return JSON.parse(item);
-      } catch {
-        return { raw: item };
-      }
-    });
+    const entries = normalizeEntries(rawEntries);
     if (includeCids) {
       const cidsResponse = await fetch(`${kvUrl}/smembers/${encodeURIComponent(cidsKey)}`, {
         headers: {
@@ -85,7 +140,9 @@ const handler = async (req, res) => {
         sendJson(res, 500, { error: cidsJson?.error || cidsJson?.message || "KV CID read failed." });
         return;
       }
-      sendJson(res, 200, { entries, cids: cidsJson?.result || [] });
+      const cidsRaw = Array.isArray(cidsJson?.result) ? cidsJson.result : [];
+      const cids = normalizeCids(cidsRaw);
+      sendJson(res, 200, { entries, cids });
       return;
     }
     sendJson(res, 200, { entries });

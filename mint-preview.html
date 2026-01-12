@@ -77,6 +77,39 @@
       .mint-meta span {
         color: var(--ink);
       }
+      .pin-log {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.25);
+        display: grid;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pin-log__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 10px;
+      }
+      .pin-log__grid {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+      .pin-log__value {
+        color: var(--ink);
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .pin-log__actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
       .mint-actions {
         margin-top: 14px;
         display: flex;
@@ -263,6 +296,23 @@
         <div>Metadata (pinned): <span id="metadata-status">—</span></div>
         <div>Pinning: <span id="pinning-status">—</span></div>
         <div>Wallet: <span id="wallet-status">Not connected</span></div>
+      </div>
+      <div class="pin-log">
+        <div class="pin-log__header">
+          <div>Latest pin log</div>
+          <div id="pin-log-status">—</div>
+        </div>
+        <div class="pin-log__grid">
+          <div>Kind: <span id="pin-log-kind" class="pin-log__value">—</span></div>
+          <div>CID: <span id="pin-log-cid" class="pin-log__value">—</span></div>
+          <div>Token: <span id="pin-log-token" class="pin-log__value">—</span></div>
+          <div>Network: <span id="pin-log-network" class="pin-log__value">—</span></div>
+          <div>Contract: <span id="pin-log-contract" class="pin-log__value">—</span></div>
+          <div>Time: <span id="pin-log-time" class="pin-log__value">—</span></div>
+        </div>
+        <div class="pin-log__actions">
+          <a id="pin-log-link" class="button" href="#" target="_blank" rel="noreferrer">Open Gateway</a>
+        </div>
       </div>
       <div class="mint-actions">
         <button id="connect-wallet" type="button">Connect wallet</button>

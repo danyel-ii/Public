@@ -1,176 +1,99 @@
-# agents.md — Codex Agent Roles & Working Agreement (Bauhaus Themes)
+# agents.md — Codex Roles & Working Agreement (PaperClips)
 
-This file defines agent responsibilities and collaboration rules for implementing Bauhaus-inspired CSS themes and matching p5.js backgrounds inside an existing project.
+This project builds a paper-sculpture UI with on-chain SVG rendering, IPFS pinning, and a mint flow that preserves the live sculptural state.
 
 ## Shared Principles
-- **Do not break existing pages.** Prefer additive styling and tokenization.
-- **Theme via CSS variables** and `:root[data-theme="..."]`.
-- **Keep animations subtle** and respect `prefers-reduced-motion`.
-- **Accessibility is not optional:** visible focus, adequate contrast, semantic HTML preserved.
-- **Performance matters:** p5 sketches must be lightweight and behind content.
+- **Do not break existing pages.** Prefer additive changes and keep HTML structure stable.
+- **Determinism matters.** Same packed state must render the same SVG on-chain and in the preview.
+- **No secrets in the client.** Pinata JWT and KV tokens stay in serverless envs only.
+- **Readable UX.** Wallet and mint statuses must be human-friendly.
+- **Performance and accessibility.** Keep animations subtle and honor reduced motion.
 
 ---
 
 ## Agent Overview
 
-### Agent A — Theme Architect (CSS Tokens & System)
+### Agent A — Frontend & UX (index.html + mint-preview.html)
 **Mission**
-Design the token system and define what’s shared vs theme-specific.
+Own layout, UI state, and user messaging.
 
 **Responsibilities**
-- Create/approve `css/theme.base.css` token names and component contract.
-- Define the four theme token blocks in `css/theme.bauhaus.css`.
-- Ensure naming consistency (`--bg`, `--ink`, `--accent-1`, etc.).
-- Provide guidance on mapping existing classes to the new system.
+- Maintain the mint-preview flow and status UI.
+- Keep pinning status, mint status, and error states clear.
+- Ensure mobile layout and scroll behaviors remain stable.
 
 **Deliverables**
-- Token spec (in comments at top of `theme.base.css`)
-- Theme blocks skeleton for all 4 themes
-
-**Definition of Done**
-- Tokens cover all major UI surfaces (bg, text, border, shadow, accent, focus).
+- Updated HTML/CSS for the mint preview and story UI.
 
 ---
 
-### Agent B — CSS Implementer (Components & Layout Adaptation)
+### Agent B — Visual Systems (WebGL / p5.js)
 **Mission**
-Apply the token system to actual UI components without disturbing structure.
+Maintain the sculpture visuals and background effects.
 
 **Responsibilities**
-- Implement component styles (hero, cards, pills, buttons, nav grid).
-- Maintain responsiveness.
-- Avoid over-specific selectors; prefer class-based styling and token usage.
-- Ensure compatibility with existing CSS (load order, minimal collisions).
+- Preserve the paper stack renderer and its motion behavior.
+- Keep visual parity with the on-chain SVG output where possible.
+- Maintain performance (avoid heavy per-frame work).
 
 **Deliverables**
-- Completed component styles in `css/theme.base.css`
-- Theme-specific overrides where necessary
-
-**Definition of Done**
-- Switching `data-theme` yields distinct looks with stable layout.
+- Updated rendering logic and palette handling.
 
 ---
 
-### Agent C — p5 Sketch Engineer (4 Theme Sketches + Router)
+### Agent C — Contracts & Renderer (Solidity)
 **Mission**
-Implement 4 small p5 sketches and a router that selects based on `data-theme`.
+Ensure minting correctness and SVG rendering parity.
 
 **Responsibilities**
-- Implement `js/p5/theme-router.js`:
-  - Single canvas, behind content, pointer-events none
-  - Theme change detection (MutationObserver or polling)
-  - `prefers-reduced-motion` => render once, no loop
-  - Resize handling and pixel density control
-- Implement four theme modules:
-  - `poster.js`, `grid.js`, `collage.js`, `neon.js`
-- Read palette from CSS variables where possible:
-  - Use `getComputedStyle(document.documentElement)` for `--bg`, `--ink`, accents
+- Maintain `SculptureRenderer.sol` and `SculptureMint.sol`.
+- Keep tokenURI compatible with marketplaces (metadataUri + gateway resolution).
+- Add tests for edge cases and parity guarantees.
 
 **Deliverables**
-- Working p5 backgrounds that match the aesthetic language of each theme
-
-**Definition of Done**
-- No console errors; canvas doesn’t intercept clicks; stable performance.
+- Contracts, tests, and parity fixtures updated.
 
 ---
 
-### Agent D — Integrator (HTML Wiring + Theme Switcher)
+### Agent D — Pinning & Metadata (API + Pinata)
 **Mission**
-Hook the system into existing pages with minimal edits.
+Keep pinning reliable and auditable.
 
 **Responsibilities**
-- Update HTML to include new CSS files in correct order.
-- Add/adjust `<html data-theme="...">` default.
-- Add an optional theme switcher UI and persistence:
-  - localStorage `theme`
-  - early-apply script (avoid flash)
-- Ensure background system plays nicely with any existing canvas (pixi, etc.):
-  - Decide: replace or run alongside
-  - Ensure z-index layering is correct
+- Maintain `api/pin.js` and `api/pin-log.js`.
+- Tag pins with metadata key-values (collection, type, tokenId, etc.).
+- Log pin events to KV for auditing.
 
 **Deliverables**
-- Updated HTML entry points
-- Optional theme switcher component
-- Updated script includes for p5 router (only where needed)
-
-**Definition of Done**
-- Theme can be changed and persists; no FOUC; no layering bugs.
+- Stable pin endpoints, readable logs, and verified CIDs.
 
 ---
 
-### Agent E — QA & Accessibility Reviewer
+### Agent E — QA & DevOps
 **Mission**
-Prevent regressions and ensure accessibility + performance.
+Make sure the pipeline is deployable and testable.
 
 **Responsibilities**
-- Verify keyboard navigation + focus rings in all themes.
-- Check contrast (esp. neon theme).
-- Validate reduced motion behavior.
-- Smoke test on mobile sizes (320px+, portrait/landscape).
-- Performance pass:
-  - confirm background doesn’t stutter or consume excessive CPU
-  - ensure resize doesn’t leak canvases or event handlers
+- Keep Foundry tests and static analysis green.
+- Validate Vercel envs and IPFS gateway behavior.
+- Verify end-to-end mint flow on Base Sepolia.
 
 **Deliverables**
-- QA checklist results
-- Issues filed with exact reproduction steps and screenshots if possible
-
-**Definition of Done**
-- Passes the checklist; no critical a11y regressions.
+- CI updates, release notes, and verification steps.
 
 ---
 
-## Working Agreement (How Agents Collaborate)
-1. **Start with tokens and base components** before theme-specific flourish.
-2. **One agent owns a file at a time** (avoid merge conflicts):
-   - Theme Architect: token blocks + naming
-   - CSS Implementer: component rules
-   - p5 Engineer: p5 files
-   - Integrator: HTML wiring
-3. **Every PR/change must include:**
-   - Which theme(s) it affects
-   - Before/after notes
-   - How to verify manually (2–4 steps)
-4. **Avoid “magic selectors”**:
-   - Prefer `.nav-card` over `section a:nth-child(2)` etc.
-5. **Reduced Motion rule**:
-   - If reduced motion is enabled, animations must stop; backgrounds become static.
-
----
-
-## Codex Prompts (Copy/Paste)
-
-### Prompt for Theme Architect
-You are Agent A (Theme Architect). Create a CSS token system for four Bauhaus themes using
-`:root[data-theme="poster|grid|collage|neon"]`. Define shared tokens in `css/theme.base.css`
-and theme overrides in `css/theme.bauhaus.css`. Keep selectors low-specificity and document tokens.
-
-### Prompt for CSS Implementer
-You are Agent B (CSS Implementer). Using the token system, style existing components:
-hero, cards, nav grid, pills, buttons. Do not change HTML structure unless required.
-Ensure responsiveness and visible focus in all themes.
-
-### Prompt for p5 Sketch Engineer
-You are Agent C (p5 Engineer). Implement `js/p5/theme-router.js` that attaches one p5 canvas
-behind content and switches sketches based on `document.documentElement.dataset.theme`.
-Implement four sketches (poster/grid/collage/neon) that are subtle, performant, and respect
-`prefers-reduced-motion` (static frame only).
-
-### Prompt for Integrator
-You are Agent D (Integrator). Wire CSS and p5 into existing HTML pages with minimal edits:
-add `data-theme`, add stylesheet links, add optional theme switcher with localStorage persistence,
-and ensure the background canvas is behind content and doesn’t block interaction.
-
-### Prompt for QA Reviewer
-You are Agent E (QA). Verify all themes for accessibility (focus, contrast), responsiveness,
-and reduced-motion. Report issues with clear reproduction steps and affected files/themes.
+## Working Agreement
+1. **Small, testable diffs.** Each change should be verifiable locally or via a single endpoint.
+2. **Document any schema changes.** If tokenURI or pin payloads change, update README + tests.
+3. **Prefer absolute endpoints for pinning.** IPFS-hosted UI cannot call relative API routes.
+4. **No silent failures.** Any mint or pin error must surface in the UI.
 
 ---
 
 ## Verification Checklist (Minimum)
-- [ ] All pages still render and navigate correctly.
-- [ ] Theme switching changes tokens and “feel” substantially.
-- [ ] Focus visible in every theme.
-- [ ] Reduced motion stops background animation.
-- [ ] Canvas doesn’t intercept clicks (pointer-events: none).
-- [ ] No console errors; resize doesn’t create multiple canvases.
+- [ ] Mint preview renders the packed state without console errors.
+- [ ] Pinning endpoint returns CID and gateway URL.
+- [ ] Pin log endpoint returns readable JSON entries.
+- [ ] Mint flow shows success/failure with a transaction link.
+- [ ] Marketplace rendering shows image + attributes for a fresh mint.

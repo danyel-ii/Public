@@ -15,6 +15,14 @@ const mintingStatusEl = document.getElementById("minting-status");
 const metadataStatusEl = document.getElementById("metadata-status");
 const pinningStatusEl = document.getElementById("pinning-status");
 const walletStatusEl = document.getElementById("wallet-status");
+const pinLogStatusEl = document.getElementById("pin-log-status");
+const pinLogKindEl = document.getElementById("pin-log-kind");
+const pinLogCidEl = document.getElementById("pin-log-cid");
+const pinLogTokenEl = document.getElementById("pin-log-token");
+const pinLogNetworkEl = document.getElementById("pin-log-network");
+const pinLogContractEl = document.getElementById("pin-log-contract");
+const pinLogTimeEl = document.getElementById("pin-log-time");
+const pinLogLinkEl = document.getElementById("pin-log-link");
 const toggleNetworkButton = document.getElementById("toggle-network");
 const mintModalEl = document.getElementById("mint-modal");
 const mintModalStatusEl = document.getElementById("mint-modal-status");
@@ -54,6 +62,14 @@ const MINT_ABI = [
 ];
 
 const pinningEndpoint = config.pinningEndpoint || "";
+const pinLogEndpoint = config.pinLogEndpoint || (() => {
+  if (!pinningEndpoint) return "";
+  try {
+    return new URL("./pin-log", pinningEndpoint).toString();
+  } catch {
+    return "";
+  }
+})();
 
 const setStatus = (message) => {
   if (statusEl) {
@@ -76,6 +92,63 @@ const setWalletStatus = (message) => {
 const setModalStatus = (message) => {
   if (mintModalStatusEl) {
     mintModalStatusEl.textContent = message;
+  }
+};
+
+const setPinLogStatus = (message) => {
+  if (pinLogStatusEl) {
+    pinLogStatusEl.textContent = message;
+  }
+};
+
+const updatePinLogEntry = (entry) => {
+  if (!entry) {
+    setPinLogStatus("No log entry");
+    return;
+  }
+  if (pinLogKindEl) pinLogKindEl.textContent = entry.kind || "—";
+  if (pinLogCidEl) pinLogCidEl.textContent = entry.cid || "—";
+  if (pinLogTokenEl) pinLogTokenEl.textContent = entry.tokenId || "—";
+  if (pinLogNetworkEl) pinLogNetworkEl.textContent = entry.network || "—";
+  if (pinLogContractEl) pinLogContractEl.textContent = formatAddress(entry.contract || "");
+  if (pinLogTimeEl) {
+    if (entry.createdAt) {
+      const date = new Date(entry.createdAt);
+      pinLogTimeEl.textContent = Number.isNaN(date.getTime())
+        ? entry.createdAt
+        : date.toLocaleString();
+    } else {
+      pinLogTimeEl.textContent = "—";
+    }
+  }
+  if (pinLogLinkEl) {
+    if (entry.gatewayUrl) {
+      pinLogLinkEl.href = entry.gatewayUrl;
+      pinLogLinkEl.removeAttribute("aria-disabled");
+    } else {
+      pinLogLinkEl.href = "#";
+      pinLogLinkEl.setAttribute("aria-disabled", "true");
+    }
+  }
+  setPinLogStatus("OK");
+};
+
+const fetchLatestPinLog = async () => {
+  if (!pinLogEndpoint) {
+    setPinLogStatus("Pin log not configured");
+    return;
+  }
+  setPinLogStatus("Loading...");
+  try {
+    const response = await fetch(`${pinLogEndpoint}?limit=1`);
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(json?.error || "Pin log request failed.");
+    }
+    const entries = Array.isArray(json?.entries) ? json.entries : [];
+    updatePinLogEntry(entries[0] || null);
+  } catch (err) {
+    setPinLogStatus(formatStatusError(err, "Pin log unavailable."));
   }
 };
 
@@ -350,6 +423,7 @@ const loadPreview = (packed) => {
 const packed = getPacked();
 showConfig();
 updatePinningStatus();
+fetchLatestPinLog();
 
 if (!packed) {
   setStatus("No packed state found. Generate one from index.html.");
@@ -707,6 +781,7 @@ const ensurePinnedRaster = async () => {
   if (summaryNoteEl && json.gatewayUrl) {
     summaryNoteEl.textContent = `Pinned: ${formatShort(json.gatewayUrl)}`;
   }
+  fetchLatestPinLog();
   return rasterUri;
 };
 
@@ -743,6 +818,7 @@ const ensurePinnedAnimation = async () => {
   if (summaryAnimationEl) {
     summaryAnimationEl.textContent = formatShort(animationUri);
   }
+  fetchLatestPinLog();
   return animationUri;
 };
 
@@ -785,6 +861,7 @@ const ensurePinnedMetadata = async () => {
   if (summaryMetadataEl) {
     summaryMetadataEl.textContent = formatShort(metadataUri);
   }
+  fetchLatestPinLog();
   return metadataUri;
 };
 

@@ -643,9 +643,13 @@ contract SculptureMint {
     string memory preview = SculptureRenderer.renderSvgPreview(state);
     string memory fullSvg = SculptureRenderer.renderSvg(state);
     string memory svgForMetadata = strictSvg ? preview : fullSvg;
-    string memory image = bytes(rasterUri).length > 0
-      ? resolveGateway(rasterUri)
+    string memory imageGateway = bytes(rasterUri).length > 0 ? resolveGateway(rasterUri) : "";
+    string memory image = bytes(imageGateway).length > 0
+      ? imageGateway
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(preview))));
+    string memory imageUrlEntry = bytes(imageGateway).length > 0
+      ? string(abi.encodePacked("\"image_url\":\"", imageGateway, "\","))
+      : "";
     string memory animationUrl = bytes(animationUri).length > 0
       ? resolveGateway(animationUri)
       : string(abi.encodePacked("data:image/svg+xml;base64,", Base64.encode(bytes(svgForMetadata))));
@@ -659,6 +663,7 @@ contract SculptureMint {
         "\"image\":\"",
         image,
         "\",",
+        imageUrlEntry,
         "\"image_raster\":\"",
         rasterUri,
         "\",",

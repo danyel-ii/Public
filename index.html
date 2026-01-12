@@ -1227,6 +1227,46 @@
         window.scrollTo({ top, behavior: reduce ? "auto" : "smooth" });
       };
 
+      const jumpToChapter = (index) => {
+        if (!sections.length) {
+          return;
+        }
+        const next = Math.max(0, Math.min(sections.length - 1, index));
+        const top = sections[next].offsetTop;
+        window.scrollTo({ top, behavior: "auto" });
+      };
+
+      const getInitialChapterIndex = () => {
+        const params = new URLSearchParams(window.location.search);
+        const param = params.get("chapter");
+        if (param) {
+          const value = Number(param);
+          if (!Number.isNaN(value)) {
+            return value - 1;
+          }
+        }
+        if (window.location.hash) {
+          const match = window.location.hash.match(/chapter-(\d+)/i);
+          if (match) {
+            const value = Number(match[1]);
+            if (!Number.isNaN(value)) {
+              return value - 1;
+            }
+          }
+        }
+        return null;
+      };
+
+      window.addEventListener("load", () => {
+        const initial = getInitialChapterIndex();
+        if (initial === null) {
+          return;
+        }
+        window.requestAnimationFrame(() => {
+          jumpToChapter(initial);
+        });
+      });
+
       const isInteractiveTarget = (target) =>
         target && target.closest("a, button, input, textarea, select, label, .nav-card.slop");
 

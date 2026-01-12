@@ -199,6 +199,9 @@ const formatStatusError = (err, fallback) => {
   if (message.includes("MintPaused")) {
     return "Minting is currently paused.";
   }
+  if (message.toLowerCase().includes("coalesce")) {
+    return "Transaction submitted. Confirmation pending on the explorer.";
+  }
   if (message.includes("MintPriceNotMet")) {
     return "Mint price not met. Check the required amount.";
   }
@@ -558,7 +561,31 @@ const submitMint = async () => {
       txUrl,
     });
     closeMintModal();
-    const receipt = await tx.wait();
+    let receipt;
+    try {
+      receipt = await tx.wait();
+    } catch (err) {
+      updateCelebration({
+        title: "Transaction Submitted",
+        message: "The transaction is on-chain, but confirmation could not be fetched yet.",
+        status: "Pending",
+        txHash,
+        txUrl,
+      });
+      setMintStatus("Transaction submitted. Confirmation pending.");
+      return;
+    }
+    if (receipt && receipt.status !== 1) {
+      updateCelebration({
+        title: "Transaction Failed",
+        message: "The transaction reverted on-chain.",
+        status: "Failed",
+        txHash,
+        txUrl,
+      });
+      setMintStatus("Transaction reverted on-chain.");
+      return;
+    }
     const transfer = receipt.logs
       .map((log) => {
         try {

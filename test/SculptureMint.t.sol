@@ -76,7 +76,7 @@ contract SculptureMintTest {
   }
 
   function setUp() public {
-    mint = new SculptureMint("sculpture", "SCULPT", address(0xBEEF), PRICE);
+    mint = new SculptureMint("sculpture", "SCULPT", address(0xBEEF), PRICE, "");
     vm.deal(address(this), 10 ether);
   }
 

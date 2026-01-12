@@ -6,6 +6,7 @@ const UI_ROOT_NAME = "paperclips-ui";
 
 const root = process.cwd();
 const jwt = process.env.PINATA_JWT;
+const gatewayBaseRaw = process.env.PINATA_GATEWAY_URL || "";
 
 if (!jwt) {
   console.error("PINATA_JWT is not set.");
@@ -21,6 +22,21 @@ const includeEntries = [
   "assets",
   "vendor",
 ];
+
+const normalizeGateway = (raw) => {
+  if (!raw) return "https://gateway.pinata.cloud/ipfs/";
+  let value = raw.trim();
+  if (!/^https?:\/\//i.test(value)) {
+    value = `https://${value}`;
+  }
+  if (!/\/ipfs(\/|$)/i.test(value)) {
+    value = value.replace(/\/+$/, "");
+    value = `${value}/ipfs/`;
+  } else if (!value.endsWith("/")) {
+    value = `${value}/`;
+  }
+  return value;
+};
 
 const collectFiles = (baseDir, relBase = "") => {
   const files = [];
@@ -101,6 +117,8 @@ if (!response.ok) {
 }
 
 const cid = json.IpfsHash;
+const gatewayBase = normalizeGateway(gatewayBaseRaw);
 console.log(`CID: ${cid}`);
-console.log(`https://gateway.pinata.cloud/ipfs/${cid}/${UI_ROOT_NAME}/index.html`);
-console.log(`https://${cid}.ipfs.dweb.link/${UI_ROOT_NAME}/index.html`);
+console.log(`${gatewayBase}${cid}/${UI_ROOT_NAME}/index.html`);
+console.log(`https://dweb.link/ipfs/${cid}/${UI_ROOT_NAME}/index.html`);
+console.log(`https://w3s.link/ipfs/${cid}/${UI_ROOT_NAME}/index.html`);

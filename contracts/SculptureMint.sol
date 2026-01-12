@@ -87,12 +87,13 @@ contract SculptureMint {
   int256 private constant PAN_MAX_FP = 120000;
   uint256 private constant SCALE_MIN_FP = 900000;
   uint256 private constant SCALE_MAX_FP = 1100000;
-  string private constant IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
+  string private constant DEFAULT_IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 
   bool public strictSvg;
 
   bool public useIpfsMetadata;
   string public ipfsBaseUri;
+  string public gatewayBaseUri;
 
   modifier onlyOwner() {
     if (msg.sender != owner) {
@@ -114,7 +115,8 @@ contract SculptureMint {
     string memory name_,
     string memory symbol_,
     address feeRecipient_,
-    uint256 mintPriceWei_
+    uint256 mintPriceWei_,
+    string memory gatewayBaseUri_
   ) {
     if (feeRecipient_ == address(0)) {
       revert ZeroAddress();
@@ -125,6 +127,9 @@ contract SculptureMint {
     feeRecipient = payable(feeRecipient_);
     mintPriceWei = mintPriceWei_;
     strictSvg = false;
+    gatewayBaseUri = bytes(gatewayBaseUri_).length == 0
+      ? DEFAULT_IPFS_GATEWAY
+      : gatewayBaseUri_;
     emit OwnershipTransferred(address(0), msg.sender);
   }
 
@@ -764,7 +769,10 @@ contract SculptureMint {
     for (uint256 i = prefix.length; i < uriBytes.length; i++) {
       suffix[i - prefix.length] = uriBytes[i];
     }
-    return string(abi.encodePacked(IPFS_GATEWAY, suffix));
+    string memory base = bytes(gatewayBaseUri).length == 0
+      ? DEFAULT_IPFS_GATEWAY
+      : gatewayBaseUri;
+    return string(abi.encodePacked(base, suffix));
   }
 
   function padLeft(uint256 value, uint256 width) internal pure returns (string memory) {

@@ -14,6 +14,21 @@ const allowOrigin = (req, res) => {
   }
 };
 
+const normalizeGateway = (raw) => {
+  if (!raw) return DEFAULT_GATEWAY;
+  let value = raw.trim();
+  if (!/^https?:\/\//i.test(value)) {
+    value = `https://${value}`;
+  }
+  if (!/\/ipfs(\/|$)/i.test(value)) {
+    value = value.replace(/\/+$/, "");
+    value = `${value}/ipfs/`;
+  } else if (!value.endsWith("/")) {
+    value = `${value}/`;
+  }
+  return value;
+};
+
 const sendJson = (res, status, payload) => {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
@@ -159,7 +174,9 @@ const handler = async (req, res) => {
     }
 
     const cid = json.IpfsHash;
-    const gateway = process.env.PINATA_GATEWAY || DEFAULT_GATEWAY;
+    const gateway = normalizeGateway(
+      process.env.PINATA_GATEWAY_URL || process.env.PINATA_GATEWAY || ""
+    );
     const path = wrapWithDirectory ? `${cid}/${name}` : cid;
     sendJson(res, 200, {
       cid,

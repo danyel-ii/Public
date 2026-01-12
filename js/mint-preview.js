@@ -49,6 +49,7 @@ const MINT_ABI = [
   "function metadataFrozen() view returns (bool)",
   "function useIpfsMetadata() view returns (bool)",
   "function ipfsBaseUri() view returns (string)",
+  "function totalSupply() view returns (uint256)",
   "function previewMetadata(bytes packed, string rasterUri, string animationUri) view returns (string)",
 ];
 
@@ -109,6 +110,21 @@ const formatShort = (value) => {
   return `${value.slice(0, 8)}…${value.slice(-6)}`;
 };
 
+const getPackedHash = () => {
+  if (packedHash) return packedHash;
+  const packedHex = normalizePackedHex(packed);
+  if (!packedHex || !window.ethers) return "";
+  packedHash = window.ethers.keccak256(packedHex);
+  return packedHash;
+};
+
+const getPinContext = () => ({
+  tokenId: nextTokenId || "",
+  packedHash: getPackedHash(),
+  network: config.chainName || String(config.chainId || ""),
+  contract: config.contractAddress || "",
+});
+
 const isConfigured = () =>
   config.contractAddress &&
   config.contractAddress !== "0x0000000000000000000000000000000000000000";
@@ -125,8 +141,7 @@ const showConfig = () => {
 const openMintModal = () => {
   if (!mintModalEl) return;
   const ethers = window.ethers;
-  const packedHex = normalizePackedHex(packed);
-  const hash = packedHex && ethers ? ethers.keccak256(packedHex) : "—";
+  const hash = getPackedHash() || "—";
   if (summaryNetworkEl) {
     summaryNetworkEl.textContent = config.chainName || `Chain ${config.chainId || "—"}`;
   }
@@ -375,6 +390,8 @@ let animationUri = "";
 let animationGatewayUrl = "";
 let metadataUri = "";
 let lastMintedTokenId = null;
+let nextTokenId = "";
+let packedHash = "";
 
 const ensureChain = async (provider) => {
   if (!config.chainId) return;
@@ -452,6 +469,12 @@ const connectWallet = async () => {
       contract.useIpfsMetadata(),
       contract.ipfsBaseUri(),
     ]);
+    try {
+      const supply = await contract.totalSupply();
+      nextTokenId = (BigInt(supply) + 1n).toString();
+    } catch (err) {
+      nextTokenId = "";
+    }
     if (priceEl) {
       priceEl.textContent = `${window.ethers.formatEther(mintPriceWei)} ETH`;
     }
@@ -669,6 +692,7 @@ const ensurePinnedRaster = async () => {
       kind: "png",
       dataUrl,
       fileName: `sculpture-${hash ? hash.slice(2, 10) : Date.now()}.png`,
+      ...getPinContext(),
     }),
   });
   const json = await response.json();
@@ -707,6 +731,7 @@ const ensurePinnedAnimation = async () => {
       kind: "svg",
       svg,
       fileName: `sculpture-${hash ? hash.slice(2, 10) : Date.now()}.svg`,
+      ...getPinContext(),
     }),
   });
   const json = await response.json();
@@ -749,6 +774,7 @@ const ensurePinnedMetadata = async () => {
       kind: "json",
       metadata: metadataJson,
       fileName: `sculpture-${hash ? hash.slice(2, 10) : Date.now()}.json`,
+      ...getPinContext(),
     }),
   });
   const json = await response.json();

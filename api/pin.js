@@ -1,5 +1,4 @@
 const DEFAULT_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
-const PINATA_UPLOAD_ENDPOINT = "https://uploads.pinata.cloud/v3/files";
 
 const allowOrigin = (req, res) => {
   const raw = process.env.PIN_API_ORIGINS || "*";
@@ -56,7 +55,6 @@ const handler = async (req, res) => {
     sendJson(res, 500, { error: "PINATA_JWT is not configured." });
     return;
   }
-  const metadataGroupId = (process.env.PINATA_METADATA_GROUP_ID || "").trim();
 
   let dataUrl = "";
   let fileName = "";
@@ -64,6 +62,10 @@ const handler = async (req, res) => {
   let metadata = null;
   let kind = "png";
   let wrapWithDirectory = false;
+  let tokenId = "";
+  let packedHash = "";
+  let network = "";
+  let contract = "";
   try {
     const body = req.body || {};
     dataUrl = body.dataUrl || "";
@@ -72,6 +74,10 @@ const handler = async (req, res) => {
     metadata = body.metadata ?? null;
     kind = String(body.kind || "png").toLowerCase();
     wrapWithDirectory = Boolean(body.wrapWithDirectory);
+    tokenId = body.tokenId ?? "";
+    packedHash = body.packedHash ?? "";
+    network = body.network ?? "";
+    contract = body.contract ?? "";
   } catch (err) {
     sendJson(res, 400, { error: "Invalid JSON body." });
     return;
@@ -117,49 +123,59 @@ const handler = async (req, res) => {
     return;
   }
 
+  const keyvalues = {
+    collection: "paperclips",
+    type: typeLabel,
+  };
+  if (tokenId !== "" && tokenId !== null && tokenId !== undefined) {
+    keyvalues.tokenId = String(tokenId);
+  }
+  if (packedHash) {
+    keyvalues.packedHash = String(packedHash).slice(0, 66);
+  }
+  if (network) {
+    keyvalues.network = String(network).slice(0, 64);
+  }
+  if (contract) {
+    keyvalues.contract = String(contract).slice(0, 64);
+  }
+
   const form = new FormData();
   form.append("file", new Blob([buffer], { type: contentType }), name);
   form.append(
     "pinataMetadata",
     JSON.stringify({
       name,
-      keyvalues: { collection: "paperclips", type: typeLabel },
+      keyvalues,
     })
   );
   if (wrapWithDirectory) {
     form.append("pinataOptions", JSON.stringify({ wrapWithDirectory: true }));
   }
 
-  const uploadToGroup = async () => {
-    if (!metadataGroupId) return null;
-    const groupForm = new FormData();
-    groupForm.append("file", new Blob([buffer], { type: contentType }), name);
-    groupForm.append("name", name);
-    groupForm.append("group_id", metadataGroupId);
-    const response = await fetch(PINATA_UPLOAD_ENDPOINT, {
+  const logPin = async (entry) => {
+    const kvUrl = process.env.KV_REST_API_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN;
+    if (!kvUrl || !kvToken) {
+      return { ok: false, error: "KV is not configured." };
+    }
+    const key = process.env.PIN_LOG_KEY || "paperclips:pins";
+    const response = await fetch(`${kvUrl}/lpush/${encodeURIComponent(key)}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${jwt}`,
+        Authorization: `Bearer ${kvToken}`,
+        "Content-Type": "application/json",
       },
-      body: groupForm,
+      body: JSON.stringify([JSON.stringify(entry)]),
     });
-    const json = await response.json();
     if (!response.ok) {
-      throw new Error(json?.error || json?.message || "Pinata group upload failed.");
+      const json = await response.json().catch(() => ({}));
+      return { ok: false, error: json?.error || json?.message || "KV log failed." };
     }
-    return json?.data || null;
+    return { ok: true };
   };
 
   try {
-    let groupData = null;
-    let groupError = "";
-    if (kind === "json" && metadataGroupId) {
-      try {
-        groupData = await uploadToGroup();
-      } catch (err) {
-        groupError = err?.message || "Pinata group upload failed.";
-      }
-    }
     const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
       headers: {
@@ -178,15 +194,26 @@ const handler = async (req, res) => {
       process.env.PINATA_GATEWAY_URL || process.env.PINATA_GATEWAY || ""
     );
     const path = wrapWithDirectory ? `${cid}/${name}` : cid;
+    const logEntry = {
+      cid,
+      ipfsUri: `ipfs://${path}`,
+      gatewayUrl: `${gateway}${path}`,
+      fileName: name,
+      kind: typeLabel,
+      tokenId: keyvalues.tokenId || "",
+      packedHash: keyvalues.packedHash || "",
+      network: keyvalues.network || "",
+      contract: keyvalues.contract || "",
+      createdAt: new Date().toISOString(),
+    };
+    const logResult = await logPin(logEntry);
     sendJson(res, 200, {
       cid,
       ipfsUri: `ipfs://${path}`,
       gatewayUrl: `${gateway}${path}`,
       baseUri: wrapWithDirectory ? `ipfs://${cid}/` : "",
       fileName: name,
-      groupId: metadataGroupId || "",
-      groupCid: groupData?.cid || "",
-      groupError,
+      logError: logResult.ok ? "" : logResult.error || "KV log failed.",
     });
   } catch (err) {
     sendJson(res, 500, { error: err?.message || "Pinata request failed." });

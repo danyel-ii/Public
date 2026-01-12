@@ -27,6 +27,10 @@ Open:
 - `PINATA_GATEWAY_URL`: Optional gateway base for `resolveGateway` and pin responses.
 - `PIN_API_ORIGINS`: Optional comma-separated CORS allowlist.
 
+### UI Pinning (local script)
+- `PIN_UI_ROOT_NAME`: Optional directory name inside the UI pin (default `paperclips-ui`).
+- `PIN_UI_WRAP_WITH_DIRECTORY`: Set to `false` to pin the UI at the IPFS root.
+
 ### KV / Pin Log (Vercel)
 - `KV_REST_API_URL`: REST endpoint for Vercel KV.
 - `KV_REST_API_TOKEN`: Write token for KV.
@@ -36,7 +40,7 @@ Open:
   `VERCEL_PROJECT_ID` → `VERCEL_GIT_REPO_SLUG` → `PaperClips`.
 
 ### Contracts / Deployment
-- `BASE_RPC_URL`, `BASE_RPC_SEPOLIA_URL`, `SEPOLIA_RPC_URL`, `FORK_RPC_URL`
+- `BASE_RPC_URL`, `SEPOLIA_RPC_URL`, `FORK_RPC_URL`
 - `BASE_DEPLOYER_PRIVATE_KEY`
 - `EARNS_KEY`
 - `ETHERSCAN_API_KEY`
@@ -70,6 +74,19 @@ Parameters:
 
 The contract stores the packed state on-chain and stores the pinned metadata URI. `tokenURI()` resolves the metadata URI via the configured gateway so marketplaces can render the image and attributes.
 
+## Pin UI to IPFS
+Pin the UI using the bundled script:
+
+```sh
+PINATA_JWT=... node scripts/pin-ui.mjs
+```
+
+To pin at the IPFS root (no `/paperclips-ui` path):
+
+```sh
+PINATA_JWT=... PIN_UI_WRAP_WITH_DIRECTORY=false node scripts/pin-ui.mjs
+```
+
 ## CI / Testing
 
 Run Foundry tests locally:
@@ -83,5 +100,5 @@ CI runs Foundry tests and static analysis. Keep tests green before deployment.
 
 ## Deployment Notes
 - Vercel serves the API and static assets.
-- IPFS-hosted HTML requires a gateway that allows HTML (Pinata needs a custom domain). For public testing, `https://dweb.link/ipfs/<cid>/paperclips-ui/index.html` works.
+- IPFS-hosted HTML requires a gateway that allows HTML. For public testing, `https://dweb.link/ipfs/<cid>/index.html` works when you pin at the root.
 - The mint preview uses an absolute pinning endpoint (Vercel) so it still works on IPFS.

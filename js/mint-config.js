@@ -1,19 +1,5 @@
 (() => {
   const configs = {
-    sepolia: {
-      contractAddress: "0xdd8969f3711909fd26c1a8267719a4457b4c8398",
-      chainId: 84532,
-      chainName: "Base Sepolia",
-      rpcUrl: "https://sepolia.base.org",
-      blockExplorerUrl: "https://sepolia.basescan.org",
-      pinningEndpoint: "https://paperclips-olive.vercel.app/api/pin",
-      nativeCurrency: {
-        name: "Ether",
-        symbol: "ETH",
-        decimals: 18,
-      },
-      walletConnectProjectId: "8640f2c711088eef523c7fd42d0cd18f",
-    },
     base: {
       contractAddress: "0xd20E49e96df454174083baC7BAe8ccb483B3489e",
       chainId: 8453,
@@ -30,25 +16,10 @@
     },
   };
 
-  const getPreferredKey = () => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const paramKey = params.get("network");
-      const storedKey = window.localStorage.getItem("mintNetwork");
-      const key = (paramKey || storedKey || "sepolia").toLowerCase();
-      return configs[key] ? key : "sepolia";
-    } catch (err) {
-      return "sepolia";
-    }
-  };
-
-  const activeKey = getPreferredKey();
+  const activeKey = "base";
   window.MINT_CONFIGS = configs;
   window.MINT_CONFIG_ACTIVE_KEY = activeKey;
   window.MINT_CONFIG = configs[activeKey];
   window.getMintConfig = () => window.MINT_CONFIG || {};
-  window.setMintNetwork = (key) => {
-    if (!configs[key]) return;
-    window.localStorage.setItem("mintNetwork", key);
-  };
+  window.setMintNetwork = () => {};
 })();

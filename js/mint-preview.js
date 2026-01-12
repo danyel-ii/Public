@@ -15,15 +15,6 @@ const mintingStatusEl = document.getElementById("minting-status");
 const metadataStatusEl = document.getElementById("metadata-status");
 const pinningStatusEl = document.getElementById("pinning-status");
 const walletStatusEl = document.getElementById("wallet-status");
-const pinLogStatusEl = document.getElementById("pin-log-status");
-const pinLogKindEl = document.getElementById("pin-log-kind");
-const pinLogCidEl = document.getElementById("pin-log-cid");
-const pinLogTokenEl = document.getElementById("pin-log-token");
-const pinLogNetworkEl = document.getElementById("pin-log-network");
-const pinLogContractEl = document.getElementById("pin-log-contract");
-const pinLogTimeEl = document.getElementById("pin-log-time");
-const pinLogLinkEl = document.getElementById("pin-log-link");
-const toggleNetworkButton = document.getElementById("toggle-network");
 const mintModalEl = document.getElementById("mint-modal");
 const mintModalStatusEl = document.getElementById("mint-modal-status");
 const mintConfirmButton = document.getElementById("mint-confirm");
@@ -45,8 +36,6 @@ const celebrationLinkEl = document.getElementById("celebration-link");
 const celebrationCloseButton = document.getElementById("celebration-close");
 
 const config = window.getMintConfig ? window.getMintConfig() : (window.MINT_CONFIG || {});
-const configKey = (window.MINT_CONFIG_ACTIVE_KEY || "sepolia").toLowerCase();
-const configList = window.MINT_CONFIGS || {};
 const MINT_ABI = [
   "function mint(bytes packed) payable returns (uint256)",
   "function mintWithImage(bytes packed, string rasterUri) payable returns (uint256)",
@@ -62,14 +51,7 @@ const MINT_ABI = [
 ];
 
 const pinningEndpoint = config.pinningEndpoint || "";
-const pinLogEndpoint = config.pinLogEndpoint || (() => {
-  if (!pinningEndpoint) return "";
-  try {
-    return new URL("./pin-log", pinningEndpoint).toString();
-  } catch {
-    return "";
-  }
-})();
+const TOKEN_NAME = "paper clip";
 
 const setStatus = (message) => {
   if (statusEl) {
@@ -92,63 +74,6 @@ const setWalletStatus = (message) => {
 const setModalStatus = (message) => {
   if (mintModalStatusEl) {
     mintModalStatusEl.textContent = message;
-  }
-};
-
-const setPinLogStatus = (message) => {
-  if (pinLogStatusEl) {
-    pinLogStatusEl.textContent = message;
-  }
-};
-
-const updatePinLogEntry = (entry) => {
-  if (!entry) {
-    setPinLogStatus("No log entry");
-    return;
-  }
-  if (pinLogKindEl) pinLogKindEl.textContent = entry.kind || "—";
-  if (pinLogCidEl) pinLogCidEl.textContent = entry.cid || "—";
-  if (pinLogTokenEl) pinLogTokenEl.textContent = entry.tokenId || "—";
-  if (pinLogNetworkEl) pinLogNetworkEl.textContent = entry.network || "—";
-  if (pinLogContractEl) pinLogContractEl.textContent = formatAddress(entry.contract || "");
-  if (pinLogTimeEl) {
-    if (entry.createdAt) {
-      const date = new Date(entry.createdAt);
-      pinLogTimeEl.textContent = Number.isNaN(date.getTime())
-        ? entry.createdAt
-        : date.toLocaleString();
-    } else {
-      pinLogTimeEl.textContent = "—";
-    }
-  }
-  if (pinLogLinkEl) {
-    if (entry.gatewayUrl) {
-      pinLogLinkEl.href = entry.gatewayUrl;
-      pinLogLinkEl.removeAttribute("aria-disabled");
-    } else {
-      pinLogLinkEl.href = "#";
-      pinLogLinkEl.setAttribute("aria-disabled", "true");
-    }
-  }
-  setPinLogStatus("OK");
-};
-
-const fetchLatestPinLog = async () => {
-  if (!pinLogEndpoint) {
-    setPinLogStatus("Pin log not configured");
-    return;
-  }
-  setPinLogStatus("Loading...");
-  try {
-    const response = await fetch(`${pinLogEndpoint}?limit=1`);
-    const json = await response.json();
-    if (!response.ok) {
-      throw new Error(json?.error || "Pin log request failed.");
-    }
-    const entries = Array.isArray(json?.entries) ? json.entries : [];
-    updatePinLogEntry(entries[0] || null);
-  } catch (err) {
-    setPinLogStatus(formatStatusError(err, "Pin log unavailable."));
   }
 };
 
@@ -253,26 +178,6 @@ const closeMintModal = () => {
   mintModalEl.classList.remove("is-open");
   mintModalEl.setAttribute("aria-hidden", "true");
   setModalStatus("");
-};
-
-const pickToggleTarget = () => {
-  const keys = Object.keys(configList);
-  if (keys.length < 2) return null;
-  if (configKey === "sepolia" && configList.base) return "base";
-  if (configKey === "base" && configList.sepolia) return "sepolia";
-  return keys.find((key) => key !== configKey) || null;
-};
-
-const updateToggleLabel = () => {
-  if (!toggleNetworkButton) return;
-  const target = pickToggleTarget();
-  if (!target) {
-    toggleNetworkButton.disabled = true;
-    toggleNetworkButton.textContent = "Network locked";
-    return;
-  }
-  const targetName = configList[target]?.chainName || target;
-  toggleNetworkButton.textContent = `Switch to ${targetName}`;
 };
 
 const formatStatusError = (err, fallback) => {
@@ -423,7 +328,6 @@ const loadPreview = (packed) => {
 const packed = getPacked();
 showConfig();
 updatePinningStatus();
-fetchLatestPinLog();
 
 if (!packed) {
   setStatus("No packed state found. Generate one from index.html.");
@@ -781,7 +685,6 @@ const ensurePinnedRaster = async () => {
   if (summaryNoteEl && json.gatewayUrl) {
     summaryNoteEl.textContent = `Pinned: ${formatShort(json.gatewayUrl)}`;
   }
-  fetchLatestPinLog();
   return rasterUri;
 };
 
@@ -818,8 +721,21 @@ const ensurePinnedAnimation = async () => {
   if (summaryAnimationEl) {
     summaryAnimationEl.textContent = formatShort(animationUri);
   }
-  fetchLatestPinLog();
   return animationUri;
+};
+
+const applyMetadataName = (metadataJson) => {
+  if (!metadataJson) return metadataJson;
+  if (typeof metadataJson !== "string") {
+    return JSON.stringify({ ...metadataJson, name: TOKEN_NAME });
+  }
+  try {
+    const parsed = JSON.parse(metadataJson);
+    parsed.name = TOKEN_NAME;
+    return JSON.stringify(parsed);
+  } catch {
+    return metadataJson;
+  }
 };
 
 const ensurePinnedMetadata = async () => {
@@ -839,7 +755,8 @@ const ensurePinnedMetadata = async () => {
     throw new Error("Pin raster + animation first.");
   }
   setModalStatus("Building metadata JSON...");
-  const metadataJson = await contract.previewMetadata(packed, rasterUri, animationUri);
+  const rawMetadata = await contract.previewMetadata(packed, rasterUri, animationUri);
+  const metadataJson = applyMetadataName(rawMetadata);
   setModalStatus("Pinning metadata JSON to IPFS...");
   const packedHex = normalizePackedHex(packed);
   const hash = window.ethers ? window.ethers.keccak256(packedHex) : "";
@@ -861,7 +778,6 @@ const ensurePinnedMetadata = async () => {
   if (summaryMetadataEl) {
     summaryMetadataEl.textContent = formatShort(metadataUri);
   }
-  fetchLatestPinLog();
   return metadataUri;
 };
 
@@ -870,17 +786,6 @@ if (connectButton) {
 }
 if (mintButton) {
   mintButton.addEventListener("click", handleMintIntent);
-}
-if (toggleNetworkButton && window.setMintNetwork) {
-  updateToggleLabel();
-  toggleNetworkButton.addEventListener("click", () => {
-    const target = pickToggleTarget();
-    if (!target) return;
-    window.setMintNetwork(target);
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set("network", target);
-    window.location.href = nextUrl.toString();
-  });
 }
 if (mintCancelButton) {
   mintCancelButton.addEventListener("click", closeMintModal);

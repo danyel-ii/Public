@@ -6,6 +6,11 @@ const rootNameRaw = process.env.PIN_UI_ROOT_NAME;
 const UI_ROOT_NAME = typeof rootNameRaw === "string"
   ? rootNameRaw.trim()
   : "paperclips-ui";
+const wrapRaw = process.env.PIN_UI_WRAP_WITH_DIRECTORY;
+const WRAP_WITH_DIRECTORY =
+  typeof wrapRaw === "string"
+    ? !["0", "false", "no"].includes(wrapRaw.trim().toLowerCase())
+    : true;
 const uiRootPrefix = UI_ROOT_NAME ? `${UI_ROOT_NAME.replace(/\/+$/, "")}/` : "";
 const uiRootLabel = UI_ROOT_NAME || "paperclips-root";
 
@@ -105,7 +110,10 @@ form.append(
     keyvalues: { collection: "paperclips", type: "ui" },
   })
 );
-form.append("pinataOptions", JSON.stringify({ wrapWithDirectory: true }));
+form.append(
+  "pinataOptions",
+  JSON.stringify({ wrapWithDirectory: WRAP_WITH_DIRECTORY })
+);
 
 const response = await fetch(PINATA_ENDPOINT, {
   method: "POST",
@@ -124,8 +132,8 @@ if (!response.ok) {
 const cid = json.IpfsHash;
 const gatewayBase = normalizeGateway(gatewayBaseRaw);
 console.log(`CID: ${cid}`);
-const indexPath = UI_ROOT_NAME
-  ? `${UI_ROOT_NAME}/index.html`
+const indexPath = WRAP_WITH_DIRECTORY
+  ? (UI_ROOT_NAME ? `${UI_ROOT_NAME}/index.html` : "index.html")
   : "index.html";
 console.log(`${gatewayBase}${cid}/${indexPath}`);
 console.log(`https://dweb.link/ipfs/${cid}/${indexPath}`);

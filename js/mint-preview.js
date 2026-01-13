@@ -439,15 +439,28 @@ const loadWalletConnectProvider = async () => {
   if (walletConnectLoader) {
     return walletConnectLoader;
   }
-  walletConnectLoader = new Promise((resolve) => {
-    const script = document.createElement("script");
-    script.src =
-      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js";
-    script.async = true;
-    script.onload = () => resolve(window.EthereumProvider || null);
-    script.onerror = () => resolve(null);
-    document.head.appendChild(script);
-  });
+  const loadScript = (src) =>
+    new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+  walletConnectLoader = (async () => {
+    const localOk = await loadScript("vendor/walletconnect-provider.min.js");
+    if (localOk && window.EthereumProvider) {
+      return window.EthereumProvider;
+    }
+    const cdnOk = await loadScript(
+      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js"
+    );
+    if (cdnOk && window.EthereumProvider) {
+      return window.EthereumProvider;
+    }
+    return null;
+  })();
   return walletConnectLoader;
 };
 

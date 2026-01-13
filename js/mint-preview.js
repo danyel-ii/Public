@@ -459,11 +459,14 @@ const initWalletConnect = async () => {
   if (!EthereumProvider) {
     return null;
   }
+  const chainId = config.chainId || 8453;
+  const rpcMap = config.rpcUrl ? { [chainId]: config.rpcUrl } : undefined;
   const wcProvider = await EthereumProvider.init({
     projectId: config.walletConnectProjectId,
-    chains: [config.chainId || 8453],
+    chains: [chainId],
     showQrModal: true,
     metadata: WALLET_METADATA,
+    rpcMap,
   });
   if (typeof wcProvider.connect === "function") {
     await wcProvider.connect();
@@ -873,6 +876,10 @@ const ensurePinnedMetadata = async () => {
 
 if (connectButton) {
   connectButton.addEventListener("click", connectWallet);
+}
+
+if (config.walletConnectProjectId) {
+  loadWalletConnectProvider();
 }
 if (mintButton) {
   mintButton.addEventListener("click", handleMintIntent);

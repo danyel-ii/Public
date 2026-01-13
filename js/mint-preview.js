@@ -432,13 +432,58 @@ const ensureChain = async (provider) => {
 };
 
 let walletConnectLoader = null;
+let walletConnectInstance = null;
+let walletConnectInitPromise = null;
+
+const getWalletConnectGlobal = () => {
+  if (window.EthereumProvider) return window.EthereumProvider;
+  if (window.WalletConnectEthereumProvider) return window.WalletConnectEthereumProvider;
+  const wcPackage = window["@walletconnect/ethereum-provider"];
+  if (wcPackage && wcPackage.EthereumProvider) return wcPackage.EthereumProvider;
+  return null;
+};
+
+const syncWalletConnectGlobal = (provider) => {
+  if (provider && !window.EthereumProvider) {
+    window.EthereumProvider = provider;
+  }
+  return provider;
+};
+
+const waitForEthereumProvider = (timeoutMs = 1500, intervalMs = 50) =>
+  new Promise((resolve) => {
+    const existing = getWalletConnectGlobal();
+    if (existing) {
+      resolve(syncWalletConnectGlobal(existing));
+      return;
+    }
+    const started = Date.now();
+    const tick = () => {
+      const provider = getWalletConnectGlobal();
+      if (provider) {
+        resolve(syncWalletConnectGlobal(provider));
+        return;
+      }
+      if (Date.now() - started >= timeoutMs) {
+        resolve(null);
+        return;
+      }
+      setTimeout(tick, intervalMs);
+    };
+    tick();
+  });
+
 const loadWalletConnectProvider = async () => {
-  if (window.EthereumProvider) {
-    return window.EthereumProvider;
+  const existing = getWalletConnectGlobal();
+  if (existing) {
+    return syncWalletConnectGlobal(existing);
   }
   if (walletConnectLoader) {
     return walletConnectLoader;
   }
+  const existingScript = document.querySelector(
+    'script[src*="walletconnect/ethereum-provider"], script[src*="walletconnect-provider"]'
+  );
   const loadScript = (src) =>
     new Promise((resolve) => {
       const script = document.createElement("script");
@@ -449,15 +494,21 @@ const loadWalletConnectProvider = async () => {
       document.head.appendChild(script);
     });
   walletConnectLoader = (async () => {
+    if (existingScript) {
+      const provider = await waitForEthereumProvider(2000);
+      return syncWalletConnectGlobal(provider);
+    }
     const localOk = await loadScript("vendor/walletconnect-provider.min.js");
-    if (localOk && window.EthereumProvider) {
-      return window.EthereumProvider;
+    if (localOk) {
+      const provider = await waitForEthereumProvider(800);
+      if (provider) return syncWalletConnectGlobal(provider);
     }
     const cdnOk = await loadScript(
       "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js"
     );
-    if (cdnOk && window.EthereumProvider) {
-      return window.EthereumProvider;
+    if (cdnOk) {
+      const provider = await waitForEthereumProvider(800);
+      if (provider) return syncWalletConnectGlobal(provider);
     }
     return null;
   })();
@@ -468,25 +519,37 @@ const initWalletConnect = async () => {
   if (!config.walletConnectProjectId) {
     return null;
   }
-  const EthereumProvider = await loadWalletConnectProvider();
-  if (!EthereumProvider) {
-    return null;
+  if (walletConnectInstance) {
+    return walletConnectInstance;
   }
-  const chainId = config.chainId || 8453;
-  const rpcMap = config.rpcUrl ? { [chainId]: config.rpcUrl } : undefined;
-  const wcProvider = await EthereumProvider.init({
-    projectId: config.walletConnectProjectId,
-    chains: [chainId],
-    showQrModal: true,
-    metadata: WALLET_METADATA,
-    rpcMap,
-  });
-  if (typeof wcProvider.connect === "function") {
-    await wcProvider.connect();
-  } else if (typeof wcProvider.enable === "function") {
-    await wcProvider.enable();
+  if (walletConnectInitPromise) {
+    return walletConnectInitPromise;
   }
-  return wcProvider;
+  walletConnectInitPromise = (async () => {
+    const EthereumProvider = await loadWalletConnectProvider();
+    if (!EthereumProvider) {
+      return null;
+    }
+    const chainId = config.chainId || 8453;
+    const rpcMap = config.rpcUrl ? { [chainId]: config.rpcUrl } : undefined;
+    const wcProvider = await EthereumProvider.init({
+      projectId: config.walletConnectProjectId,
+      chains: [chainId],
+      showQrModal: true,
+      metadata: WALLET_METADATA,
+      rpcMap,
+    });
+    if (typeof wcProvider.connect === "function") {
+      await wcProvider.connect();
+    } else if (typeof wcProvider.enable === "function") {
+      await wcProvider.enable();
+    }
+    walletConnectInstance = wcProvider;
+    return wcProvider;
+  })();
+  const provider = await walletConnectInitPromise;
+  walletConnectInitPromise = null;
+  return provider;
 };
 
 const getWalletProvider = async () => {
